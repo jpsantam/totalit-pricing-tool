@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>totalIT — bundle pricing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <div class="wrap topbar">
+    <div class="logo"><span class="dot"></span>ramsac</div>
+    <div class="topmeta">totalIT · Bundle Pricing · Internal</div>
+  </div>
+
+  <div class="stage wrap">
+
+    <!-- 0 · start -->
+    <section class="screen on" id="s-start">
+      <div class="eyebrow">totalIT · Secure Bundle</div>
+      <h1 class="big display">Price a contract<br>in three answers.</h1>
+      <p class="lead" style="margin-top:1.6rem">Users, servers, charity status — that is everything the
+        model needs. The tool works out ticket volumes, starter&#8209;and&#8209;leaver hours and cyber time
+        from the user count, applies the standard 80% markup, and gives you the per&#8209;user price with
+        full workings.</p>
+      <div class="qfoot" style="margin-top:2.6rem">
+        <button class="btn" data-go="s-users">Start &rarr;</button>
+        <span class="qhint">Built from the totalIT Bundles Calculator (SECURE tab)</span>
+      </div>
+    </section>
+
+    <!-- 1 · users -->
+    <section class="screen" id="s-users">
+      <div class="steps"><span class="s now"></span><span class="s"></span><span class="s"></span></div>
+      <div class="eyebrow">Question 1 of 3</div>
+      <h2 class="q display">How many users?</h2>
+      <div class="numwrap">
+        <input class="num" id="in-users" type="number" min="1" step="1" placeholder="300" inputmode="numeric">
+        <span class="numunit">users</span>
+      </div>
+      <div class="qfoot">
+        <button class="btn" data-go="s-servers" id="next-users">Next &rarr;</button>
+        <span class="qhint">&#9166; Enter works too</span>
+      </div>
+      <p class="qcontext">The user count drives three things automatically: expected helpdesk tickets,
+        starter &amp; leaver hours, and cyber management hours. Worth asking how headcount moves over
+        the next 12 months while you're at it: growth changes the price, and it's easier to size
+        the contract once than renegotiate it twice.</p>
+    </section>
+
+    <!-- 2 · servers -->
+    <section class="screen" id="s-servers">
+      <div class="steps"><span class="s done"></span><span class="s now"></span><span class="s"></span></div>
+      <div class="eyebrow">Question 2 of 3</div>
+      <h2 class="q display">How many servers?</h2>
+      <div class="numwrap">
+        <input class="num" id="in-servers" type="number" min="0" step="1" placeholder="0" inputmode="numeric">
+        <span class="numunit">servers</span>
+      </div>
+      <div class="qfoot">
+        <button class="btn" data-go="s-charity" id="next-servers">Next &rarr;</button>
+        <button class="btn ghost" data-go="s-users">&larr; Back</button>
+      </div>
+      <p class="qcontext">Servers switch on health monitoring, backup monitoring, Veeam NOC and SIEM.
+        Cloud-only estate? Zero is fine.</p>
+    </section>
+
+    <!-- 3 · charity -->
+    <section class="screen" id="s-charity">
+      <div class="steps"><span class="s done"></span><span class="s done"></span><span class="s now"></span></div>
+      <div class="eyebrow">Question 3 of 3</div>
+      <h2 class="q display">Are they a charity?</h2>
+      <div class="choices">
+        <button class="choice display" data-charity="no">No</button>
+        <button class="choice display" data-charity="yes">Yes</button>
+      </div>
+      <div class="qfoot">
+        <button class="btn ghost" data-go="s-servers">&larr; Back</button>
+      </div>
+      <p class="qcontext">Charities get 10% off the sell price. Margin drops from 44% to 38% —
+        already reflected in the answer.</p>
+    </section>
+
+    <!-- 4 · answer -->
+    <section class="screen" id="s-result">
+      <div class="result-head">
+        <div class="headline">
+          <div class="eyebrow" id="r-eyebrow">totalIT · Secure Bundle</div>
+          <div class="was" id="r-was" hidden></div>
+          <div class="figure display" id="r-peruser">&pound;46.78</div>
+          <div class="per">per user, per month <span id="r-perserver-inline"></span></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:.6rem; align-items:flex-end">
+          <span class="badge blue internal" id="r-margin"><span class="d"></span>44% margin</span>
+          <span class="badge" id="r-charity" hidden><span class="d"></span>Charity rate applied</span>
+        </div>
+      </div>
+
+      <div class="cards">
+        <div class="card"><div class="k">Monthly total</div><div class="v" id="r-monthly"></div><div class="s internal" id="r-monthly-s"></div></div>
+        <div class="card"><div class="k">Annual value</div><div class="v" id="r-annual"></div><div class="s">12 months, ex VAT</div></div>
+        <div class="card internal"><div class="k">Cost to ramsac</div><div class="v" id="r-cost"></div><div class="s" id="r-cost-s"></div></div>
+        <div class="card"><div class="k">Per server</div><div class="v" id="r-perserver"></div><div class="s" id="r-perserver-s"></div></div>
+      </div>
+
+      <div class="chips" id="r-chips"></div>
+      <div class="flags" id="r-flags"></div>
+
+      <details class="adv" open>
+        <summary>The conversation</summary>
+        <div class="story" id="r-story"></div>
+      </details>
+
+      <details class="adv">
+        <summary>Adjust markup</summary>
+        <div class="advrow">
+          <label for="in-markup">Markup %</label>
+          <input class="small" id="in-markup" type="number" min="0" max="400" step="5" value="80">
+          <span class="advnote" id="markup-note" hidden>&#9888; Off the 80% default — agree any variance with Matt or Dan first.</span>
+        </div>
+      </details>
+
+      <details class="adv">
+        <summary>Workings</summary>
+        <div class="workings">
+          <table id="r-table">
+            <thead><tr>
+              <th>Service</th><th class="r">Unit cost</th><th>Basis</th>
+              <th class="r">Units p/m</th><th class="r">Cost p/m</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+
+      <div class="printonly" id="print-includes"></div>
+
+      <div class="result-actions">
+        <button class="btn" id="restart">Price another &rarr;</button>
+        <button class="btn ghost" data-go="s-users">Edit answers</button>
+        <button class="btn ghost" onclick="window.print()" title="Prints a client-safe page: price and what's included, no cost or margin">Print for the client</button>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="wrap foot"><span class="d"></span><b>ramsac</b>&nbsp;· totalIT bundle pricing · figures ex VAT · source: totalIT Bundles Calculator</div>
+</div>
+
+<script src="model.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
