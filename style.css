@@ -153,6 +153,28 @@ tr.total td{font-weight:700; border-bottom:none; border-top:2px solid var(--ink)
   .cards{grid-template-columns:repeat(2,1fr)}
   .result-head{flex-direction:column; align-items:flex-start}
 }
+
+/* feedback */
+.fb-fab{position:fixed; right:1.4rem; bottom:1.4rem; z-index:40; font-family:"Geist"; font-weight:600;
+  font-size:.85rem; color:var(--cream); background:var(--ink); border:1.5px solid var(--ink);
+  border-radius:999px; padding:.75rem 1.3rem; cursor:pointer;
+  box-shadow:0 12px 30px -14px rgba(10,17,26,.5); transition:transform .3s var(--ease)}
+.fb-fab:hover{transform:translateY(-2px)}
+.fb-panel{position:fixed; right:1.4rem; bottom:4.6rem; z-index:41; width:min(92vw,360px);
+  background:var(--cream); border:1.5px solid color-mix(in srgb,var(--blue) 30%, transparent);
+  border-radius:18px; padding:1.3rem; box-shadow:0 24px 60px -20px rgba(10,17,26,.45)}
+.fb-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:.5rem}
+.fb-title{font-size:1.3rem}
+.fb-x{background:none; border:none; font-size:1.3rem; line-height:1; color:var(--blue); cursor:pointer; padding:.1rem .4rem}
+.fb-hint{font-size:.8rem; color:var(--blue); line-height:1.4; margin-bottom:.8rem}
+.fb-text{width:100%; font-family:"Geist"; font-size:.9rem; color:var(--ink); background:transparent;
+  border:1.5px solid color-mix(in srgb,var(--blue) 35%, transparent); border-radius:10px; padding:.7rem;
+  resize:vertical; outline:none}
+.fb-text:focus{border-color:var(--red)}
+.fb-actions{display:flex; align-items:center; gap:.8rem; margin-top:.9rem; flex-wrap:wrap}
+.fb-actions .btn{padding:.6rem 1.3rem; font-size:.85rem}
+.fb-status{font-size:.8rem; color:var(--blue)}
+@media print{ .fb-fab,.fb-panel{display:none!important} }
 /* client-safe print: price + what's included; everything internal stays on screen */
 .printonly{display:none}
 @media print{
