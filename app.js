@@ -1,6 +1,9 @@
 /* ===== totalIT pricing tool — flow + render ===== */
 
-const state = { bundle: null, users: null, servers: null, charity: null, markup: MODEL.defaultMarkup, ticketsOverride: null };
+const state = { bundle: null, users: null, servers: null, charity: null, markup: MODEL.defaultMarkup, ticketsOverride: null,
+  excluded: new Set(), added: [], unitOverrides: {} };
+
+function resetCustomization() { state.excluded = new Set(); state.added = []; state.unitOverrides = {}; }
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -43,6 +46,7 @@ $$('#s-bundle .choice').forEach(c => c.addEventListener('click', () => {
   $$('#s-bundle .choice').forEach(x => x.classList.remove('sel'));
   c.classList.add('sel');
   state.bundle = c.dataset.bundle;
+  resetCustomization();
   setTimeout(() => show('s-users'), 220);
 }));
 
@@ -68,10 +72,54 @@ $('#in-tickets').addEventListener('input', () => {
   render();
 });
 
+/* workings table — per-quote include/exclude + cost overrides (delegated: rows are rebuilt every render) */
+$('#r-table tbody').addEventListener('change', e => {
+  const key = e.target.closest('tr')?.dataset.key;
+  if (!key) return;
+  if (e.target.matches('.line-include')) {
+    if (e.target.checked) state.excluded.delete(key); else state.excluded.add(key);
+    render();
+  }
+});
+$('#r-table tbody').addEventListener('input', e => {
+  const key = e.target.closest('tr')?.dataset.key;
+  if (!key || !e.target.matches('.line-cost')) return;
+  const v = parseFloat(e.target.value);
+  const defaultUnit = parseFloat(e.target.dataset.default);
+  if (isNaN(v) || v < 0) return;
+  if (Math.abs(v - defaultUnit) < 1e-9) delete state.unitOverrides[key];
+  else state.unitOverrides[key] = v;
+  render();
+});
+
+/* add a service from the master catalog that isn't already on this quote */
+function addServiceFromInput() {
+  const input = $('#in-addservice');
+  const typed = input.value.trim().toLowerCase();
+  if (!typed) return;
+  const match = Object.values(SERVICES).find(s => s.name.toLowerCase() === typed);
+  if (!match) return;
+  const onQuote = new Set([...BUNDLES[state.bundle].items.map(it => it.key), ...state.added]);
+  if (onQuote.has(match.key)) { input.value = ''; return; }
+  state.added.push(match.key);
+  state.excluded.delete(match.key);
+  input.value = '';
+  render();
+}
+$('#btn-addservice').addEventListener('click', addServiceFromInput);
+$('#in-addservice').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addServiceFromInput(); } });
+
+function currentOpts() {
+  return { bundle: state.bundle, users: state.users, servers: state.servers, charity: state.charity,
+           markup: state.markup, ticketsOverride: state.ticketsOverride,
+           excluded: state.excluded, added: state.added, unitOverrides: state.unitOverrides };
+}
+
 /* restart */
 $('#restart').addEventListener('click', () => {
   state.bundle = state.users = state.servers = state.charity = state.ticketsOverride = null;
   state.markup = MODEL.defaultMarkup;
+  resetCustomization();
   $('#in-markup').value = 80;
   $('#in-users').value = ''; $('#in-servers').value = ''; $('#in-tickets').value = '';
   $$('.choice').forEach(x => x.classList.remove('sel'));
@@ -88,12 +136,19 @@ $('#restart').addEventListener('click', () => {
   state.charity = p.get('c') === 'yes';
   if (p.has('m')) { state.markup = (parseFloat(p.get('m')) || 80) / 100; $('#in-markup').value = parseFloat(p.get('m')) || 80; }
   if (p.has('t')) { const t = parseFloat(p.get('t')); if (!isNaN(t) && t >= 0) { state.ticketsOverride = t; $('#in-tickets').value = t; } }
+  if (p.has('x')) state.excluded = new Set(p.get('x').split(',').filter(Boolean));
+  if (p.has('a')) state.added = p.get('a').split(',').filter(k => SERVICES[k]);
+  if (p.has('o')) p.get('o').split(',').forEach(pair => {
+    const [key, val] = pair.split(':');
+    const v = parseFloat(val);
+    if (SERVICES[key] && !isNaN(v) && v >= 0) state.unitOverrides[key] = v;
+  });
   $('#in-users').value = state.users; $('#in-servers').value = state.servers;
   show('s-result');
 })();
 
 function render() {
-  const opts = { bundle: state.bundle, users: state.users, servers: state.servers, charity: state.charity, markup: state.markup, ticketsOverride: state.ticketsOverride };
+  const opts = currentOpts();
   const r = priceBundle(opts);
   $('#in-tickets').placeholder = num(r.ticketsAssumed);
   $('#tickets-note').hidden = !r.flags.ticketsOverridden;
@@ -119,7 +174,7 @@ function render() {
   $('#r-perserver-s').textContent = state.servers > 0 ? 'server-driven services' : 'no servers in scope';
 
   /* chips — what the model derived for you */
-  const cyberCover = r.lines.some(l => l.name.startsWith('MDR') || l.name.startsWith('ITDR') || l.name.startsWith('SIEM'));
+  const cyberCover = r.lines.some(l => l.included && (l.name.startsWith('MDR') || l.name.startsWith('ITDR') || l.name.startsWith('SIEM')));
   $('#r-chips').innerHTML = [
     `<span class="chip blue">${num(r.tickets)} helpdesk tickets p/m` + (r.flags.ticketsOverridden ? ' (client-provided)' : ' expected') + `</span>`,
     `<span class="chip blue">${num(r.slHrs)} hrs starters &amp; leavers p/m</span>`,
@@ -130,7 +185,7 @@ function render() {
   /* the conversation — talking points built from this configuration */
   const perDay = r.perUser / 21.7; // average working days per month
   const annual = r.sell * 12;
-  const activeLines = r.lines.filter(l => l.cost > 0).length;
+  const activeLines = r.lines.filter(l => l.included && l.cost > 0).length;
   const hires = Math.max(1, Math.round(annual / 52000)); // ~fully loaded cost of one IT hire
   const cover = cyberCover ? '24/7 cover, ' : '';
   const story = [
@@ -168,24 +223,42 @@ function render() {
     flags.push(`<b>Under 50 users:</b> the calculator doesn't define cyber management hours below 50 users — the 50–100 band (3 hrs) has been assumed. Sense-check before quoting.`);
   if (r.flags.serverSplitAssumed)
     flags.push(`<b>Per-server rate is an allocation assumption.</b> Server-driven services (health monitoring, backup monitoring, Veeam NOC, SIEM) are priced per server; everything else per user. The shared calculator tabs only ever had zero servers — confirm the split matches how ramsac quotes.`);
+  if (r.flags.customized) {
+    const removed = r.lines.filter(l => !l.included).length;
+    const addedN = r.lines.filter(l => l.addedExtra).length;
+    const overridden = r.lines.filter(l => l.overridden).length;
+    const bits = [];
+    if (removed) bits.push(`${removed} service${removed > 1 ? 's' : ''} removed`);
+    if (addedN) bits.push(`${addedN} service${addedN > 1 ? 's' : ''} added`);
+    if (overridden) bits.push(`${overridden} cost${overridden > 1 ? 's' : ''} adjusted`);
+    flags.push(`<b>This quote is customized</b> — ${bits.join(', ')} from the standard ${r.bundleName} bundle. See "Workings" for exactly what changed.`);
+  }
   $('#r-flags').innerHTML = flags.map(f => `<div class="flag">${f}</div>`).join('');
 
   /* client-safe print page: price + what's included, nothing internal */
   $('#print-includes').innerHTML =
     `<h3>What's included</h3><ul>` +
-    r.lines.filter(l => l.cost > 0).map(l => `<li>${l.name}</li>`).join('') +
+    r.lines.filter(l => l.included && l.cost > 0).map(l => `<li>${l.name}</li>`).join('') +
     `</ul><p class="printfoot">Prepared by ramsac · ${r.bundleName} bundle · ${state.users} users${state.servers ? `, ${state.servers} servers` : ''} · figures ex VAT.</p>`;
 
-  /* workings table */
+  /* workings table — checkbox to include/exclude, editable unit cost per line */
   const tb = $('#r-table tbody');
   tb.innerHTML = r.lines.map(l => `
-    <tr>
-      <td>${l.name}${l.note ? `<div class="tnote">${l.note}</div>` : ''}</td>
-      <td class="r">${gbp.format(l.unit)}</td>
+    <tr class="${l.included ? '' : 'excluded'}" data-key="${l.key}">
+      <td><input type="checkbox" class="line-include" ${l.included ? 'checked' : ''} aria-label="Include ${l.name}"></td>
+      <td>${l.name}${l.addedExtra ? ' <span class="addedtag">added</span>' : ''}${l.note ? `<div class="tnote">${l.note}</div>` : ''}${l.overridden ? `<div class="tnote">standard ${gbp.format(l.defaultUnit)}</div>` : ''}</td>
+      <td class="r"><input type="number" class="line-cost" value="${l.unit}" data-default="${l.defaultUnit}" min="0" step="0.01" aria-label="Unit cost for ${l.name}"></td>
       <td>${l.unitLabel}</td>
       <td class="r">${num(l.units)}</td>
       <td class="r">${gbp.format(l.cost)}</td>
     </tr>`).join('') + `
-    <tr class="total"><td>Cost to provide ${r.bundleName.toUpperCase()} bundle</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>
-    <tr class="total"><td>Price to sell${state.charity ? ' (charity −10%)' : ''} · markup ${Math.round(state.markup * 100)}%</td><td></td><td></td><td></td><td class="r">${gbp.format(r.sell)}</td></tr>`;
+    <tr class="total"><td></td><td>Cost to provide ${r.bundleName.toUpperCase()} bundle${r.flags.customized ? ' (as customized)' : ''}</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>
+    <tr class="total"><td></td><td>Price to sell${state.charity ? ' (charity −10%)' : ''} · markup ${Math.round(state.markup * 100)}%</td><td></td><td></td><td></td><td class="r">${gbp.format(r.sell)}</td></tr>`;
+
+  /* add-a-service datalist: every master-catalog service not already on this quote */
+  const onQuote = new Set(r.lines.map(l => l.key));
+  $('#addservice-options').innerHTML = Object.values(SERVICES)
+    .filter(s => !onQuote.has(s.key))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(s => `<option value="${s.name}">`).join('');
 }

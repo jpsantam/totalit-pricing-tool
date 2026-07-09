@@ -49,10 +49,37 @@ to use the model's own user-count-based assumption, or enter a
 client-provided figure to override it. Only the Helpdesk line uses this
 number; starter/leaver and cyber hours stay banded on user count regardless.
 
+**Customizing a single quote — "Workings".** Every bundle prices its
+standard line-up by default, same as always. If a specific deal needs
+something different, open "Workings" on the answer screen:
+
+- **Untick a line** to drop that service from this quote — the row greys
+  out and its cost stops counting toward the total, but stays visible
+  (struck through) so it's clear it was deliberately removed, not missing.
+  Re-tick to bring it back.
+- **Edit a unit cost** directly in the table to price a client-specific
+  rate for one line — a "standard £X" note appears under the name so it's
+  obvious it's been changed. This only affects this quote; it does not
+  touch `services.js`.
+- **"Add a service"** below the table searches the full master catalog
+  (including services that aren't normally in this bundle, e.g. adding
+  SIEM to an Essentials quote) and adds it as a new, fully editable/
+  removable line.
+
+None of this changes the bundle's defaults for the next person pricing the
+same bundle — it's scoped to the current quote only (cleared when you pick
+a bundle again or restart). A "This quote is customized" flag appears
+whenever any of the above is in play, and the client-facing print view
+always reflects the actual included lines and costs, never the bundle
+defaults.
+
 **Shareable links:** `?b=PREMIUM&u=300&s=4&c=yes` (optionally `&m=70` for
 markup %, `&t=150` for a ticket override) jumps straight to a priced answer.
 `b` accepts `ESSENTIALS`, `SECURE` or `PREMIUM`; omit it and it defaults to
-Secure.
+Secure. Customizations round-trip through the link too: `&x=SIEM,ITDR` to
+exclude services, `&a=BOARD_BRIEFING` to add one from outside the bundle,
+`&o=HELPDESK:32.50` to override a unit cost (comma-separate multiple; keys
+are the ones in `services.js`).
 
 ## Not in scope: frontline / non-core workers
 
@@ -182,3 +209,8 @@ items }`, load the script in `index.html` (after `model.js`, before
   confirm against how ramsac actually quotes.
 - Frontline/non-core worker pricing is intentionally not implemented — see
   "Not in scope" above.
+- Per-quote customizations (Workings — untick/add/edit costs) are not saved
+  anywhere; they live only in memory for that session, or in a shared link's
+  `x`/`a`/`o` params if one was generated. There's no record of who
+  customized what after the fact — if that matters for a given deal, capture
+  the link or a screenshot before closing the tab.

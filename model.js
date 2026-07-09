@@ -40,8 +40,14 @@ function bandLookup(bands, users) {
   return bands.find(b => users >= b.min);
 }
 
-/* Returns { lines, cost, price, perUser, perServer, ... } for a configuration. */
-function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODEL.defaultMarkup, ticketsOverride = null }) {
+/* Returns { lines, cost, price, perUser, perServer, ... } for a configuration.
+   `excluded` (array/Set of service keys), `added` (array of service keys from
+   the master catalog not in the bundle by default) and `unitOverrides`
+   ({ [key]: number }) let a specific quote diverge from the bundle's
+   standard line-up — used for per-quote RM customization, not for changing
+   the bundle's own defaults. */
+function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODEL.defaultMarkup,
+                        ticketsOverride = null, excluded = [], added = [], unitOverrides = {} }) {
   const b = BUNDLES[bundle];
   const ticketsAssumed = users * bandLookup(MODEL.ticketBands, users).rate;
   const ticketsOverridden = ticketsOverride !== null && ticketsOverride !== undefined && !isNaN(ticketsOverride);
@@ -49,7 +55,11 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
   const slHrs   = bandLookup(MODEL.slBands, users).hrs;
   const cyberBand = bandLookup(MODEL.cyberBands, users);
 
-  const lines = b.items.map(it => {
+  const excludedSet = excluded instanceof Set ? excluded : new Set(excluded);
+  const extraItems = added.map(k => SERVICES[k]).filter(Boolean);
+  const allItems = [...b.items, ...extraItems];
+
+  const lines = allItems.map(it => {
     let units, unitLabel;
     switch (it.basis) {
       case 'ticket':     units = tickets;        unitLabel = 'per ticket'; break;
@@ -61,11 +71,18 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
       case 'fixed':      units = 1;              unitLabel = 'fixed p/m'; break;
       default:           units = it.hrs;         unitLabel = 'per hour';
     }
-    return { ...it, units, unitLabel, cost: it.unit * units,
+    const hasOverride = Object.prototype.hasOwnProperty.call(unitOverrides, it.key) && !isNaN(unitOverrides[it.key]);
+    const unit = hasOverride ? unitOverrides[it.key] : it.unit;
+    return { ...it, units, unitLabel, unit,
+             defaultUnit: it.unit, overridden: hasOverride,
+             included: !excludedSet.has(it.key),
+             addedExtra: !b.items.includes(it),
+             cost: unit * units,
              serverDriven: it.basis === 'server' };
   });
 
-  const cost = lines.reduce((s, l) => s + l.cost, 0);
+  const includedLines = lines.filter(l => l.included);
+  const cost = includedLines.reduce((s, l) => s + l.cost, 0);
   const price = cost * (1 + markup);
   const discount = charity ? MODEL.charityDiscount : 0;
   const sell = price * (1 - discount);
@@ -75,7 +92,7 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
   // compliance costs, which the sheet has no per-server equivalent for) to the
   // user rate. With 0 servers this reproduces the sheet exactly; with servers
   // it is an assumption to confirm — the shared tabs never had servers > 0.
-  const serverCost = lines.filter(l => l.serverDriven).reduce((s, l) => s + l.cost, 0);
+  const serverCost = includedLines.filter(l => l.serverDriven).reduce((s, l) => s + l.cost, 0);
   const userCost = cost - serverCost;
   const perUser   = users   ? (userCost   * (1 + markup) * (1 - discount)) / users   : 0;
   const perServer = servers ? (serverCost * (1 + markup) * (1 - discount)) / servers : 0;
@@ -91,6 +108,7 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
       ticketsOverridden,
       cyberBandUndefined: !!cyberBand.undefinedInSheet,
       serverSplitAssumed: servers > 0,
+      customized: excludedSet.size > 0 || extraItems.length > 0 || Object.keys(unitOverrides).length > 0,
     },
   };
 }

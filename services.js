@@ -47,4 +47,9 @@ const SERVICES = {
   ISO27001_GAP_ANALYSIS:   { name: 'ISO 27001 Gap Analysis',                                         unit: 121.86,          basis: 'fixed', note: "Annual: 24 hrs (3 days) of Voke's time at £60.93/hr, amortised over 12 months (Note 7)" },
 };
 
+/* Every entry knows its own catalog key — lets the UI/engine reference a
+   service by key (for toggling, overriding, or adding it to a quote)
+   without repeating the name as a string anywhere else. */
+Object.keys(SERVICES).forEach(k => { SERVICES[k].key = k; });
+
 if (typeof module !== 'undefined') module.exports = { SERVICES };

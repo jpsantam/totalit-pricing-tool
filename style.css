@@ -142,6 +142,24 @@ td{padding:.55rem .8rem; border-bottom:1px solid color-mix(in srgb,var(--blue) 1
 td.r,th.r{text-align:right; font-variant-numeric:tabular-nums}
 tr.total td{font-weight:700; border-bottom:none; border-top:2px solid var(--ink); padding-top:.8rem}
 .tnote{font-size:.78rem; color:var(--blue)}
+tr[data-key] td:first-child{width:1.6rem}
+tr[data-key] .line-include{width:1.05rem; height:1.05rem; accent-color:var(--ink); cursor:pointer}
+tr.excluded td{opacity:.4; text-decoration:line-through}
+tr.excluded .line-include{opacity:1; text-decoration:none}
+.addedtag{font-size:.62rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--teal);
+  border:1px solid color-mix(in srgb,var(--teal) 55%, transparent); border-radius:999px; padding:.1rem .5rem; margin-left:.4rem}
+input.line-cost{width:5.4rem; font-family:"Geist"; font-weight:600; font-size:.88rem; text-align:right;
+  background:transparent; border:1px solid color-mix(in srgb,var(--blue) 30%, transparent);
+  border-radius:8px; padding:.3rem .5rem; color:var(--ink); outline:none}
+input.line-cost:focus{border-color:var(--red)}
+tr.excluded input.line-cost{text-decoration:none}
+
+.addservice{display:flex; align-items:center; gap:.8rem; margin-top:1.2rem; flex-wrap:wrap}
+.addservice input{font-family:"Geist"; font-size:.9rem; min-width:16rem; flex:1 1 16rem;
+  background:transparent; border:1.5px solid color-mix(in srgb,var(--blue) 35%, transparent);
+  border-radius:10px; padding:.55rem .8rem; color:var(--ink); outline:none}
+.addservice input:focus{border-color:var(--red)}
+.addservice .btn{padding:.55rem 1.1rem; font-size:.85rem}
 
 /* footer */
 .foot{padding:1.6rem 0 2rem; font-size:.72rem; letter-spacing:.05em; color:var(--blue);

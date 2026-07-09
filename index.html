@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>totalIT — bundle pricing</title>
-<link rel="stylesheet" href="style.css?v=2026070901">
+<link rel="stylesheet" href="style.css?v=2026070902">
 </head>
 <body>
 <div class="app">
@@ -147,16 +147,23 @@
         </div>
       </details>
 
-      <details class="adv">
-        <summary>Workings</summary>
+      <details class="adv" id="d-workings">
+        <summary>Workings — select services, edit costs</summary>
+        <p class="qcontext" style="margin-top:.6rem">Untick a line to drop it from this quote, or edit its unit
+          cost to price a client-specific rate. Nothing here changes the standard bundle — only this quote.</p>
         <div class="workings">
           <table id="r-table">
             <thead><tr>
-              <th>Service</th><th class="r">Unit cost</th><th>Basis</th>
+              <th></th><th>Service</th><th class="r">Unit cost</th><th>Basis</th>
               <th class="r">Units p/m</th><th class="r">Cost p/m</th>
             </tr></thead>
             <tbody></tbody>
           </table>
+        </div>
+        <div class="addservice">
+          <input id="in-addservice" list="addservice-options" placeholder="Add a service&hellip;" autocomplete="off">
+          <datalist id="addservice-options"></datalist>
+          <button class="btn ghost" id="btn-addservice" type="button">+ Add to quote</button>
         </div>
       </details>
 
@@ -189,12 +196,12 @@
   </div>
 </div>
 
-<script src="services.js?v=2026070901"></script>
-<script src="model.js?v=2026070901"></script>
-<script src="secure.js?v=2026070901"></script>
-<script src="essentials.js?v=2026070901"></script>
-<script src="premium.js?v=2026070901"></script>
-<script src="app.js?v=2026070901"></script>
-<script src="feedback.js?v=2026070901"></script>
+<script src="services.js?v=2026070902"></script>
+<script src="model.js?v=2026070902"></script>
+<script src="secure.js?v=2026070902"></script>
+<script src="essentials.js?v=2026070902"></script>
+<script src="premium.js?v=2026070902"></script>
+<script src="app.js?v=2026070902"></script>
+<script src="feedback.js?v=2026070902"></script>
 </body>
 </html>
