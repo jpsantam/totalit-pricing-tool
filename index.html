@@ -17,22 +17,40 @@
 
     <!-- 0 · start -->
     <section class="screen on" id="s-start">
-      <div class="eyebrow">totalIT · Secure Bundle</div>
-      <h1 class="big display">Price a contract<br>in three answers.</h1>
-      <p class="lead" style="margin-top:1.6rem">Users, servers, charity status — that is everything the
+      <div class="eyebrow">totalIT · Bundle Pricing</div>
+      <h1 class="big display">Price a contract<br>in four answers.</h1>
+      <p class="lead" style="margin-top:1.6rem">Bundle, users, servers, charity status — that is everything the
         model needs. The tool works out ticket volumes, starter&#8209;and&#8209;leaver hours and cyber time
         from the user count, applies the standard 80% markup, and gives you the per&#8209;user price with
         full workings.</p>
       <div class="qfoot" style="margin-top:2.6rem">
-        <button class="btn" data-go="s-users">Start &rarr;</button>
-        <span class="qhint">Built from the totalIT Bundles Calculator (SECURE tab)</span>
+        <button class="btn" data-go="s-bundle">Start &rarr;</button>
+        <span class="qhint">Built from the totalIT Bundles Calculator (Essentials / Secure / Premium tabs)</span>
       </div>
     </section>
 
-    <!-- 1 · users -->
+    <!-- 1 · bundle -->
+    <section class="screen" id="s-bundle">
+      <div class="steps"><span class="s now"></span><span class="s"></span><span class="s"></span><span class="s"></span></div>
+      <div class="eyebrow">Question 1 of 4</div>
+      <h2 class="q display">Which bundle?</h2>
+      <div class="choices">
+        <button class="choice display" data-bundle="ESSENTIALS">Essentials</button>
+        <button class="choice display" data-bundle="SECURE">Secure</button>
+        <button class="choice display" data-bundle="PREMIUM">Premium</button>
+      </div>
+      <div class="qfoot">
+        <button class="btn ghost" data-go="s-start">&larr; Back</button>
+      </div>
+      <p class="qcontext">Essentials: helpdesk, patching and backup. Secure adds 24/7 cyber monitoring
+        and response. Premium adds board-level cyber reporting and formal compliance/certification
+        services (Cyber Essentials, ISO 27001 gap analysis).</p>
+    </section>
+
+    <!-- 2 · users -->
     <section class="screen" id="s-users">
-      <div class="steps"><span class="s now"></span><span class="s"></span><span class="s"></span></div>
-      <div class="eyebrow">Question 1 of 3</div>
+      <div class="steps"><span class="s done"></span><span class="s now"></span><span class="s"></span><span class="s"></span></div>
+      <div class="eyebrow">Question 2 of 4</div>
       <h2 class="q display">How many users?</h2>
       <div class="numwrap">
         <input class="num" id="in-users" type="number" min="1" step="1" placeholder="300" inputmode="numeric">
@@ -48,10 +66,10 @@
         the contract once than renegotiate it twice.</p>
     </section>
 
-    <!-- 2 · servers -->
+    <!-- 3 · servers -->
     <section class="screen" id="s-servers">
-      <div class="steps"><span class="s done"></span><span class="s now"></span><span class="s"></span></div>
-      <div class="eyebrow">Question 2 of 3</div>
+      <div class="steps"><span class="s done"></span><span class="s done"></span><span class="s now"></span><span class="s"></span></div>
+      <div class="eyebrow">Question 3 of 4</div>
       <h2 class="q display">How many servers?</h2>
       <div class="numwrap">
         <input class="num" id="in-servers" type="number" min="0" step="1" placeholder="0" inputmode="numeric">
@@ -65,10 +83,10 @@
         Cloud-only estate? Zero is fine.</p>
     </section>
 
-    <!-- 3 · charity -->
+    <!-- 4 · charity -->
     <section class="screen" id="s-charity">
-      <div class="steps"><span class="s done"></span><span class="s done"></span><span class="s now"></span></div>
-      <div class="eyebrow">Question 3 of 3</div>
+      <div class="steps"><span class="s done"></span><span class="s done"></span><span class="s done"></span><span class="s now"></span></div>
+      <div class="eyebrow">Question 4 of 4</div>
       <h2 class="q display">Are they a charity?</h2>
       <div class="choices">
         <button class="choice display" data-charity="no">No</button>
@@ -121,6 +139,15 @@
       </details>
 
       <details class="adv">
+        <summary>Adjust expected tickets</summary>
+        <div class="advrow">
+          <label for="in-tickets">Tickets p/m</label>
+          <input class="small" id="in-tickets" type="number" min="0" step="1" placeholder="model assumption">
+          <span class="advnote" id="tickets-note" hidden>Client-provided figure — overrides the model's ticket-band assumption.</span>
+        </div>
+      </details>
+
+      <details class="adv">
         <summary>Workings</summary>
         <div class="workings">
           <table id="r-table">
@@ -137,7 +164,7 @@
 
       <div class="result-actions">
         <button class="btn" id="restart">Price another &rarr;</button>
-        <button class="btn ghost" data-go="s-users">Edit answers</button>
+        <button class="btn ghost" data-go="s-bundle">Edit answers</button>
         <button class="btn ghost" onclick="window.print()" title="Prints a client-safe page: price and what's included, no cost or margin">Print for the client</button>
       </div>
     </section>
@@ -162,7 +189,11 @@
   </div>
 </div>
 
+<script src="services.js"></script>
 <script src="model.js"></script>
+<script src="secure.js"></script>
+<script src="essentials.js"></script>
+<script src="premium.js"></script>
 <script src="app.js"></script>
 <script src="feedback.js"></script>
 </body>

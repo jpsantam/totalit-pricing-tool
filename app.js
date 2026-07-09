@@ -1,6 +1,6 @@
 /* ===== totalIT pricing tool — flow + render ===== */
 
-const state = { users: null, servers: null, charity: null, markup: MODEL.defaultMarkup };
+const state = { bundle: null, users: null, servers: null, charity: null, markup: MODEL.defaultMarkup, ticketsOverride: null };
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -38,9 +38,17 @@ function readServers() {
 $('#in-users').addEventListener('keydown', e => { if (e.key === 'Enter' && readUsers()) show('s-servers'); });
 $('#in-servers').addEventListener('keydown', e => { if (e.key === 'Enter' && readServers()) show('s-charity'); });
 
+/* bundle choice → straight to users */
+$$('#s-bundle .choice').forEach(c => c.addEventListener('click', () => {
+  $$('#s-bundle .choice').forEach(x => x.classList.remove('sel'));
+  c.classList.add('sel');
+  state.bundle = c.dataset.bundle;
+  setTimeout(() => show('s-users'), 220);
+}));
+
 /* charity choice → straight to the answer */
-$$('.choice').forEach(c => c.addEventListener('click', () => {
-  $$('.choice').forEach(x => x.classList.remove('sel'));
+$$('#s-charity .choice').forEach(c => c.addEventListener('click', () => {
+  $$('#s-charity .choice').forEach(x => x.classList.remove('sel'));
   c.classList.add('sel');
   state.charity = c.dataset.charity === 'yes';
   setTimeout(() => show('s-result'), 220);
@@ -52,35 +60,48 @@ $('#in-markup').addEventListener('input', () => {
   if (!isNaN(v) && v >= 0) { state.markup = v / 100; render(); }
 });
 
-/* restart */
-$('#restart').addEventListener('click', () => {
-  state.users = state.servers = state.charity = null;
-  state.markup = MODEL.defaultMarkup;
-  $('#in-markup').value = 80;
-  $('#in-users').value = ''; $('#in-servers').value = '';
-  $$('.choice').forEach(x => x.classList.remove('sel'));
-  show('s-users');
+/* ticket volume override — client-provided figure in place of the model's assumption */
+$('#in-tickets').addEventListener('input', () => {
+  const raw = $('#in-tickets').value;
+  const v = parseFloat(raw);
+  state.ticketsOverride = (raw === '' || isNaN(v) || v < 0) ? null : v;
+  render();
 });
 
-/* deep link: ?u=300&s=4&c=yes → straight to the answer (shareable) */
+/* restart */
+$('#restart').addEventListener('click', () => {
+  state.bundle = state.users = state.servers = state.charity = state.ticketsOverride = null;
+  state.markup = MODEL.defaultMarkup;
+  $('#in-markup').value = 80;
+  $('#in-users').value = ''; $('#in-servers').value = ''; $('#in-tickets').value = '';
+  $$('.choice').forEach(x => x.classList.remove('sel'));
+  show('s-bundle');
+});
+
+/* deep link: ?b=SECURE&u=300&s=4&c=yes → straight to the answer (shareable) */
 (function () {
   const p = new URLSearchParams(location.search);
   if (!p.has('u')) return;
+  state.bundle = BUNDLES[p.get('b')] ? p.get('b') : 'SECURE';
   state.users = Math.max(1, parseInt(p.get('u'), 10) || 1);
   state.servers = Math.max(0, parseInt(p.get('s') || '0', 10) || 0);
   state.charity = p.get('c') === 'yes';
   if (p.has('m')) { state.markup = (parseFloat(p.get('m')) || 80) / 100; $('#in-markup').value = parseFloat(p.get('m')) || 80; }
+  if (p.has('t')) { const t = parseFloat(p.get('t')); if (!isNaN(t) && t >= 0) { state.ticketsOverride = t; $('#in-tickets').value = t; } }
   $('#in-users').value = state.users; $('#in-servers').value = state.servers;
   show('s-result');
 })();
 
 function render() {
-  const r = priceBundle({ users: state.users, servers: state.servers, charity: state.charity, markup: state.markup });
+  const opts = { bundle: state.bundle, users: state.users, servers: state.servers, charity: state.charity, markup: state.markup, ticketsOverride: state.ticketsOverride };
+  const r = priceBundle(opts);
+  $('#in-tickets').placeholder = num(r.ticketsAssumed);
+  $('#tickets-note').hidden = !r.flags.ticketsOverridden;
 
   /* headline — keep the standard price visible whenever anything discounts it (the anchor) */
-  $('#r-eyebrow').textContent = `totalIT · Secure Bundle · ${state.users} users` + (state.servers ? ` · ${state.servers} servers` : '');
+  $('#r-eyebrow').textContent = `totalIT · ${r.bundleName} Bundle · ${state.users} users` + (state.servers ? ` · ${state.servers} servers` : '');
   $('#r-peruser').textContent = gbp.format(r.perUser);
-  const anchor = priceBundle({ users: state.users, servers: state.servers, charity: false, markup: MODEL.defaultMarkup });
+  const anchor = priceBundle({ ...opts, charity: false, markup: MODEL.defaultMarkup });
   const discounted = r.perUser < anchor.perUser - 0.005;
   $('#r-was').hidden = !discounted;
   if (discounted) $('#r-was').textContent = gbp.format(anchor.perUser) + ' standard';
@@ -98,11 +119,12 @@ function render() {
   $('#r-perserver-s').textContent = state.servers > 0 ? 'server-driven services' : 'no servers in scope';
 
   /* chips — what the model derived for you */
+  const cyberCover = r.lines.some(l => l.name.startsWith('MDR') || l.name.startsWith('ITDR') || l.name.startsWith('SIEM'));
   $('#r-chips').innerHTML = [
-    `<span class="chip blue">${num(r.tickets)} helpdesk tickets p/m expected</span>`,
+    `<span class="chip blue">${num(r.tickets)} helpdesk tickets p/m` + (r.flags.ticketsOverridden ? ' (client-provided)' : ' expected') + `</span>`,
     `<span class="chip blue">${num(r.slHrs)} hrs starters &amp; leavers p/m</span>`,
-    `<span class="chip blue">${num(r.cyberHrs)} hrs cyber management p/m</span>`,
-    `<span class="chip">4 hrs technical change (SECURE ratio)</span>`,
+    cyberCover ? `<span class="chip blue">${num(r.cyberHrs)} hrs cyber management p/m</span>` : '',
+    `<span class="chip">${r.tcHours} hrs technical change (${r.bundleName.toUpperCase()} ratio)</span>`,
   ].join('');
 
   /* the conversation — talking points built from this configuration */
@@ -110,8 +132,9 @@ function render() {
   const annual = r.sell * 12;
   const activeLines = r.lines.filter(l => l.cost > 0).length;
   const hires = Math.max(1, Math.round(annual / 52000)); // ~fully loaded cost of one IT hire
+  const cover = cyberCover ? '24/7 cover, ' : '';
   const story = [
-    `<b>Walk the list before the number.</b> ${activeLines} services, 24/7 cover, a named team.
+    `<b>Walk the list before the number.</b> ${activeLines} services, ${cover}a named team.
      A price that lands after the list reads as the summary of a lot; the same price up front
      reads as an opening bid.`,
     `<b>${gbp.format(r.perUser)} a user is ${gbp.format(perDay)} a working day.</b> Same price,
@@ -119,11 +142,10 @@ function render() {
      the conversation.`,
     annual < 52000
       ? `<b>It costs less than one hire.</b> The whole contract is under a single fully-loaded
-         in-house IT salary, and it comes with a service desk, patching, backup and a 24/7 cyber
-         team. That comparison does most of the work for you.`
+         in-house IT salary, and it comes with a service desk, patching, backup` + (cyberCover ? ' and a 24/7 cyber team' : '') + `. That comparison does most of the work for you.`
       : `<b>It replaces a department, not a line item.</b> ${gbp0.format(annual)} a year is
          roughly ${hires} fully-loaded in-house hires (~£52k each), and what it buys is a
-         service desk, patching, backup and a 24/7 cyber team no ${hires}-person team covers.`,
+         service desk, patching, backup` + (cyberCover ? ` and a 24/7 cyber team no ${hires}-person team covers` : '') + `.`,
     `<b>Quote it exactly.</b> ${gbp.format(r.perUser)} reads as arithmetic. A round number
      reads as an opening position.`,
   ];
@@ -135,22 +157,24 @@ function render() {
   /* flags */
   const flags = [];
   if (r.flags.markupOverridden) {
-    const base = priceBundle({ users: state.users, servers: state.servers, charity: state.charity, markup: MODEL.defaultMarkup });
+    const base = priceBundle({ ...opts, markup: MODEL.defaultMarkup });
     const concession = (base.sell - r.sell) * 12;
     flags.push(`<b>Markup is off the 80% default.</b> Any variance must be agreed with Matt or Dan before this price goes anywhere.`
       + (concession > 0 ? ` That change is worth ${gbp0.format(concession)} a year. If the price moves, something moves back: a longer term, annual billing up front, or a referenceable case study.` : ''));
   }
-  if (r.flags.cyberBandUndefined)
+  if (r.flags.ticketsOverridden)
+    flags.push(`<b>Ticket volume is client-provided.</b> ${num(r.tickets)}/month replaces the model's own assumption of ${num(r.ticketsAssumed)}/month for this user count — only the Helpdesk line is affected.`);
+  if (r.flags.cyberBandUndefined && cyberCover)
     flags.push(`<b>Under 50 users:</b> the calculator doesn't define cyber management hours below 50 users — the 50–100 band (3 hrs) has been assumed. Sense-check before quoting.`);
   if (r.flags.serverSplitAssumed)
-    flags.push(`<b>Per-server rate is an allocation assumption.</b> Server-driven services (health monitoring, backup monitoring, Veeam NOC, SIEM) are priced per server; everything else per user. The shared calculator tab only ever had zero servers — confirm the split matches how ramsac quotes.`);
+    flags.push(`<b>Per-server rate is an allocation assumption.</b> Server-driven services (health monitoring, backup monitoring, Veeam NOC, SIEM) are priced per server; everything else per user. The shared calculator tabs only ever had zero servers — confirm the split matches how ramsac quotes.`);
   $('#r-flags').innerHTML = flags.map(f => `<div class="flag">${f}</div>`).join('');
 
   /* client-safe print page: price + what's included, nothing internal */
   $('#print-includes').innerHTML =
     `<h3>What's included</h3><ul>` +
     r.lines.filter(l => l.cost > 0).map(l => `<li>${l.name}</li>`).join('') +
-    `</ul><p class="printfoot">Prepared by ramsac · ${state.users} users${state.servers ? `, ${state.servers} servers` : ''} · figures ex VAT.</p>`;
+    `</ul><p class="printfoot">Prepared by ramsac · ${r.bundleName} bundle · ${state.users} users${state.servers ? `, ${state.servers} servers` : ''} · figures ex VAT.</p>`;
 
   /* workings table */
   const tb = $('#r-table tbody');
@@ -162,6 +186,6 @@ function render() {
       <td class="r">${num(l.units)}</td>
       <td class="r">${gbp.format(l.cost)}</td>
     </tr>`).join('') + `
-    <tr class="total"><td>Cost to provide SECURE bundle</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>
+    <tr class="total"><td>Cost to provide ${r.bundleName.toUpperCase()} bundle</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>
     <tr class="total"><td>Price to sell${state.charity ? ' (charity −10%)' : ''} · markup ${Math.round(state.markup * 100)}%</td><td></td><td></td><td></td><td class="r">${gbp.format(r.sell)}</td></tr>`;
 }
