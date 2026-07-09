@@ -14,6 +14,20 @@ python3 -m http.server 8902
 # open http://localhost:8902
 ```
 
+## Deploying a change — bump the cache-busting version
+
+Every script/stylesheet tag in `index.html` has a `?v=YYYYMMDDnn` query
+string. **Bump it (e.g. `2026070901` → `2026070902`) any time you edit
+`services.js`, `model.js`, `secure.js`, `essentials.js`, `premium.js`,
+`app.js`, `feedback.js` or `style.css`, in the same commit.** GitHub Pages
+caches assets for 10 minutes (`Cache-Control: max-age=600`); without a
+version bump, a browser that loaded the page shortly before your deploy can
+end up running an old script against new HTML (or vice versa) for up to that
+long. If someone already has the page open in a tab when you deploy, only a
+reload fixes it for them — no version bump can retroactively update a page
+already running in memory — but bumping the version on every deploy is what
+guarantees any *new* page load always gets a matched set of files.
+
 ## Use
 
 1. **Bundle** → Essentials, Secure or Premium. Each has its own service
