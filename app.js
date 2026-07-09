@@ -92,22 +92,59 @@ $('#r-table tbody').addEventListener('input', e => {
   render();
 });
 
-/* add a service from the master catalog that isn't already on this quote */
-function addServiceFromInput() {
-  const input = $('#in-addservice');
-  const typed = input.value.trim().toLowerCase();
-  if (!typed) return;
-  const match = Object.values(SERVICES).find(s => s.name.toLowerCase() === typed);
-  if (!match) return;
+/* add services from the master catalog that aren't already on this quote —
+   multiselect panel: check any number of services, commit them all at once */
+let pendingAdd = new Set();
+
+function addServiceAvailable() {
   const onQuote = new Set([...BUNDLES[state.bundle].items.map(it => it.key), ...state.added]);
-  if (onQuote.has(match.key)) { input.value = ''; return; }
-  state.added.push(match.key);
-  state.excluded.delete(match.key);
-  input.value = '';
-  render();
+  return Object.values(SERVICES).filter(s => !onQuote.has(s.key)).sort((a, b) => a.name.localeCompare(b.name));
 }
-$('#btn-addservice').addEventListener('click', addServiceFromInput);
-$('#in-addservice').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addServiceFromInput(); } });
+function renderAddServicePanel() {
+  const q = $('#addservice-search').value.trim().toLowerCase();
+  const matches = addServiceAvailable().filter(s => !q || s.name.toLowerCase().includes(q));
+  $('#addservice-list').innerHTML = matches.length
+    ? matches.map(s => `
+        <label class="addservice-item">
+          <input type="checkbox" value="${s.key}" ${pendingAdd.has(s.key) ? 'checked' : ''}>
+          <span>${s.name}</span>
+        </label>`).join('')
+    : `<div class="addservice-empty">No matching services</div>`;
+  updateAddServiceCommitButton();
+}
+function updateAddServiceCommitButton() {
+  const btn = $('#btn-addservice-commit');
+  btn.textContent = pendingAdd.size ? `Add ${pendingAdd.size} to quote` : 'Add to quote';
+  btn.disabled = pendingAdd.size === 0;
+}
+function openAddServicePanel() {
+  pendingAdd = new Set();
+  $('#addservice-search').value = '';
+  renderAddServicePanel();
+  $('#addservice-panel').hidden = false;
+  $('#btn-addservice-toggle').setAttribute('aria-expanded', 'true');
+  setTimeout(() => $('#addservice-search').focus(), 60);
+}
+function closeAddServicePanel() {
+  $('#addservice-panel').hidden = true;
+  $('#btn-addservice-toggle').setAttribute('aria-expanded', 'false');
+}
+$('#btn-addservice-toggle').addEventListener('click', () => {
+  if ($('#addservice-panel').hidden) openAddServicePanel(); else closeAddServicePanel();
+});
+$('#btn-addservice-cancel').addEventListener('click', closeAddServicePanel);
+$('#addservice-search').addEventListener('input', renderAddServicePanel);
+$('#addservice-list').addEventListener('change', e => {
+  if (!e.target.matches('input[type=checkbox]')) return;
+  if (e.target.checked) pendingAdd.add(e.target.value); else pendingAdd.delete(e.target.value);
+  updateAddServiceCommitButton();
+});
+$('#btn-addservice-commit').addEventListener('click', () => {
+  if (!pendingAdd.size) return;
+  pendingAdd.forEach(key => { state.added.push(key); state.excluded.delete(key); });
+  closeAddServicePanel();
+  render();
+});
 
 function currentOpts() {
   return { bundle: state.bundle, users: state.users, servers: state.servers, charity: state.charity,
@@ -255,10 +292,6 @@ function render() {
     <tr class="total"><td></td><td>Cost to provide ${r.bundleName.toUpperCase()} bundle${r.flags.customized ? ' (as customized)' : ''}</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>
     <tr class="total"><td></td><td>Price to sell${state.charity ? ' (charity −10%)' : ''} · markup ${Math.round(state.markup * 100)}%</td><td></td><td></td><td></td><td class="r">${gbp.format(r.sell)}</td></tr>`;
 
-  /* add-a-service datalist: every master-catalog service not already on this quote */
-  const onQuote = new Set(r.lines.map(l => l.key));
-  $('#addservice-options').innerHTML = Object.values(SERVICES)
-    .filter(s => !onQuote.has(s.key))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(s => `<option value="${s.name}">`).join('');
+  /* keep the add-service panel's list in sync if it's open while something else re-renders */
+  if (!$('#addservice-panel').hidden) renderAddServicePanel();
 }
