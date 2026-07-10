@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>totalIT — master costs</title>
+<link rel="stylesheet" href="style.css?v=2026071007">
+</head>
+<body>
+<div class="app">
+  <div class="wrap topbar">
+    <div class="logo"><span class="dot"></span>ramsac</div>
+    <div class="topmeta">totalIT · Master Costs · Restricted</div>
+  </div>
+
+  <div class="stage wrap">
+
+    <section class="screen on" id="unlock-panel">
+      <div class="eyebrow">totalIT · Master Costs</div>
+      <h1 class="big display">The one place<br>unit costs live.</h1>
+      <form id="unlock-form" class="qfoot" style="margin-top:2.2rem; gap:1rem; flex-wrap:wrap">
+        <input class="small" id="in-password" type="password" placeholder="Master password" style="width:20rem; text-align:left" autocomplete="off">
+        <button class="btn" type="submit">Unlock &rarr;</button>
+      </form>
+      <p class="advnote" id="unlock-error" hidden style="margin-top:1rem">Wrong password.</p>
+    </section>
+
+    <section class="screen" id="editor-panel">
+      <div class="eyebrow">totalIT · Master Costs</div>
+      <h2 class="q display">Edit unit costs</h2>
+      <p class="qcontext" id="updated-at" style="margin-top:.6rem"></p>
+
+      <div class="pillbar">
+        <button class="pill sel" data-bundle="ALL" type="button">All services</button>
+        <button class="pill" data-bundle="ESSENTIALS" type="button">Essentials</button>
+        <button class="pill" data-bundle="SECURE" type="button">Secure</button>
+        <button class="pill" data-bundle="PREMIUM" type="button">Premium</button>
+      </div>
+      <p class="qcontext" id="bundle-note" style="margin-top:.6rem"></p>
+
+      <input type="text" id="cost-search" class="addservice-search" style="margin-top:1rem"
+        placeholder="Filter services&hellip;" autocomplete="off">
+
+      <div class="workings" style="margin-top:1rem">
+        <table id="master-table">
+          <thead><tr>
+            <th>Service</th><th class="r">Unit cost</th><th>Basis</th>
+            <th class="r">Units p/m</th><th class="r">Cost p/m</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="result-actions">
+        <button class="btn" id="save-btn" type="button">Save — commits to costs.json</button>
+        <span class="qhint" id="save-status"></span>
+        <a class="btn ghost" href="index.html">Back to pricing tool</a>
+      </div>
+      <p class="qcontext" style="margin-top:1.4rem">To add a brand-new service (name, basis, which bundles
+        it belongs to) edit <code>services.js</code> in the repo instead — this page only changes the
+        live <code>unit</code> figure on services that already exist. See README.md → "Editing costs".</p>
+    </section>
+
+  </div>
+
+  <div class="wrap foot"><span class="d"></span><b>ramsac</b>&nbsp;· totalIT master costs · internal, restricted</div>
+</div>
+
+<script src="services.js?v=2026071007"></script>
+<script src="model.js?v=2026071007"></script>
+<script src="secure.js?v=2026071007"></script>
+<script src="essentials.js?v=2026071007"></script>
+<script src="premium.js?v=2026071007"></script>
+<script src="master.js?v=2026071007"></script>
+</body>
+</html>

@@ -4,13 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>totalIT — bundle pricing</title>
-<link rel="stylesheet" href="style.css?v=2026070903">
+<link rel="stylesheet" href="style.css?v=2026071007">
 </head>
 <body>
 <div class="app">
   <div class="wrap topbar">
     <div class="logo"><span class="dot"></span>ramsac</div>
-    <div class="topmeta">totalIT · Bundle Pricing · Internal</div>
+    <div style="display:flex; align-items:center; gap:1rem">
+      <div class="topmeta">totalIT · Bundle Pricing · Internal</div>
+      <a class="badge" href="master.html">Master Costs</a>
+    </div>
   </div>
 
   <div class="stage wrap">
@@ -24,15 +27,32 @@
         from the user count, applies the standard 80% markup, and gives you the per&#8209;user price with
         full workings.</p>
       <div class="qfoot" style="margin-top:2.6rem">
-        <button class="btn" data-go="s-bundle">Start &rarr;</button>
+        <button class="btn" data-go="s-mode">Start &rarr;</button>
         <span class="qhint">Built from the totalIT Bundles Calculator (Essentials / Secure / Premium tabs)</span>
       </div>
+    </section>
+
+    <!-- 0.5 · standard vs co-managed -->
+    <section class="screen" id="s-mode">
+      <div class="eyebrow">Before we start</div>
+      <h2 class="q display">Standard, or co&#8209;managed?</h2>
+      <div class="choices">
+        <button class="choice display" data-mode="STANDARD">Standard</button>
+        <button class="choice display" data-mode="COMANAGED">Co-managed</button>
+      </div>
+      <div class="qfoot">
+        <button class="btn ghost" data-go="s-start">&larr; Back</button>
+      </div>
+      <p class="qcontext">Standard: the bundle's line-up is fixed — every service shown is included and
+        can't be removed, though you can still add extra services for this quote. Co-managed: some
+        services are handled by the client or a third party, so you start from the bundle's usual
+        line-up and choose which lines actually apply.</p>
     </section>
 
     <!-- 1 · bundle -->
     <section class="screen" id="s-bundle">
       <div class="steps"><span class="s now"></span><span class="s"></span><span class="s"></span><span class="s"></span></div>
-      <div class="eyebrow">Question 1 of 4</div>
+      <div class="eyebrow" id="bundle-mode-tag">Question 1 of 4</div>
       <h2 class="q display">Which bundle?</h2>
       <div class="choices">
         <button class="choice display" data-bundle="ESSENTIALS">Essentials</button>
@@ -40,7 +60,7 @@
         <button class="choice display" data-bundle="PREMIUM">Premium</button>
       </div>
       <div class="qfoot">
-        <button class="btn ghost" data-go="s-start">&larr; Back</button>
+        <button class="btn ghost" data-go="s-mode">&larr; Back</button>
       </div>
       <p class="qcontext">Essentials: helpdesk, patching and backup. Secure adds 24/7 cyber monitoring
         and response. Premium adds board-level cyber reporting and formal compliance/certification
@@ -148,12 +168,11 @@
       </details>
 
       <details class="adv" id="d-workings">
-        <summary>Workings — select services, edit costs</summary>
-        <p class="qcontext" style="margin-top:.6rem">Untick a line to drop it from this quote, or edit its unit
-          cost to price a client-specific rate. Nothing here changes the standard bundle — only this quote.</p>
+        <summary id="workings-summary">Workings</summary>
+        <p class="qcontext" style="margin-top:.6rem" id="workings-hint"></p>
         <div class="workings">
           <table id="r-table">
-            <thead><tr>
+            <thead><tr id="r-table-head">
               <th></th><th>Service</th><th class="r">Unit cost</th><th>Basis</th>
               <th class="r">Units p/m</th><th class="r">Cost p/m</th>
             </tr></thead>
@@ -204,12 +223,12 @@
   </div>
 </div>
 
-<script src="services.js?v=2026070903"></script>
-<script src="model.js?v=2026070903"></script>
-<script src="secure.js?v=2026070903"></script>
-<script src="essentials.js?v=2026070903"></script>
-<script src="premium.js?v=2026070903"></script>
-<script src="app.js?v=2026070903"></script>
-<script src="feedback.js?v=2026070903"></script>
+<script src="services.js?v=2026071007"></script>
+<script src="model.js?v=2026071007"></script>
+<script src="secure.js?v=2026071007"></script>
+<script src="essentials.js?v=2026071007"></script>
+<script src="premium.js?v=2026071007"></script>
+<script src="app.js?v=2026071007"></script>
+<script src="feedback.js?v=2026071007"></script>
 </body>
 </html>

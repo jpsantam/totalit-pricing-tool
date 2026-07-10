@@ -41,13 +41,13 @@ function bandLookup(bands, users) {
 }
 
 /* Returns { lines, cost, price, perUser, perServer, ... } for a configuration.
-   `excluded` (array/Set of service keys), `added` (array of service keys from
-   the master catalog not in the bundle by default) and `unitOverrides`
-   ({ [key]: number }) let a specific quote diverge from the bundle's
-   standard line-up — used for per-quote RM customization, not for changing
-   the bundle's own defaults. */
+   `excluded` (array/Set of service keys) and `added` (array of service keys
+   from the master catalog not in the bundle by default) let a co-managed
+   quote diverge from the bundle's standard line-up. Unit costs themselves
+   are never per-quote — they live in SERVICES (services.js defaults,
+   overridden live from the master costs page) and apply to every quote. */
 function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODEL.defaultMarkup,
-                        ticketsOverride = null, excluded = [], added = [], unitOverrides = {} }) {
+                        ticketsOverride = null, excluded = [], added = [] }) {
   const b = BUNDLES[bundle];
   const ticketsAssumed = users * bandLookup(MODEL.ticketBands, users).rate;
   const ticketsOverridden = ticketsOverride !== null && ticketsOverride !== undefined && !isNaN(ticketsOverride);
@@ -71,13 +71,10 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
       case 'fixed':      units = 1;              unitLabel = 'fixed p/m'; break;
       default:           units = it.hrs;         unitLabel = 'per hour';
     }
-    const hasOverride = Object.prototype.hasOwnProperty.call(unitOverrides, it.key) && !isNaN(unitOverrides[it.key]);
-    const unit = hasOverride ? unitOverrides[it.key] : it.unit;
-    return { ...it, units, unitLabel, unit,
-             defaultUnit: it.unit, overridden: hasOverride,
+    return { ...it, units, unitLabel,
              included: !excludedSet.has(it.key),
              addedExtra: !b.items.includes(it),
-             cost: unit * units,
+             cost: it.unit * units,
              serverDriven: it.basis === 'server' };
   });
 
@@ -108,7 +105,7 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
       ticketsOverridden,
       cyberBandUndefined: !!cyberBand.undefinedInSheet,
       serverSplitAssumed: servers > 0,
-      customized: excludedSet.size > 0 || extraItems.length > 0 || Object.keys(unitOverrides).length > 0,
+      customized: excludedSet.size > 0 || extraItems.length > 0,
     },
   };
 }

@@ -1,9 +1,27 @@
 /* ===== totalIT pricing tool — flow + render ===== */
 
-const state = { bundle: null, users: null, servers: null, charity: null, markup: MODEL.defaultMarkup, ticketsOverride: null,
-  excluded: new Set(), added: [], unitOverrides: {} };
+const state = { mode: null, bundle: null, users: null, servers: null, charity: null, markup: MODEL.defaultMarkup, ticketsOverride: null,
+  excluded: new Set(), added: [] };
 
-function resetCustomization() { state.excluded = new Set(); state.added = []; state.unitOverrides = {}; }
+function resetCustomization() { state.excluded = new Set(); state.added = []; }
+
+/* Live unit costs — committed straight to costs.json by the master costs
+   page (master.html), which writes to this repo via the GitHub API. The
+   `?t=` query string is a cache-bust: GitHub Pages caches file responses
+   for ~10 minutes by URL, but a query string that changes every load
+   sidesteps that, so this always fetches whatever's currently on the
+   branch rather than a stale cached copy. Falls back to the services.js
+   defaults if costs.json is missing/unreachable. See README → "Master
+   costs page". */
+const costsReady = fetch('costs.json?t=' + Date.now())
+  .then(r => r.ok ? r.json() : null)
+  .then(data => {
+    if (!data || !data.units) return;
+    Object.entries(data.units).forEach(([key, unit]) => {
+      if (SERVICES[key] && Number.isFinite(unit) && unit >= 0) SERVICES[key].unit = unit;
+    });
+  })
+  .catch(() => {});
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -16,7 +34,7 @@ function show(id) {
   $('#' + id).classList.add('on');
   const input = $('#' + id + ' input.num');
   if (input) setTimeout(() => input.focus(), 60);
-  if (id === 's-result') render();
+  if (id === 's-result') costsReady.then(render);
 }
 
 /* nav buttons */
@@ -40,6 +58,15 @@ function readServers() {
 /* enter advances */
 $('#in-users').addEventListener('keydown', e => { if (e.key === 'Enter' && readUsers()) show('s-servers'); });
 $('#in-servers').addEventListener('keydown', e => { if (e.key === 'Enter' && readServers()) show('s-charity'); });
+
+/* standard vs co-managed → straight to bundle choice */
+$$('#s-mode .choice').forEach(c => c.addEventListener('click', () => {
+  $$('#s-mode .choice').forEach(x => x.classList.remove('sel'));
+  c.classList.add('sel');
+  state.mode = c.dataset.mode;
+  $('#bundle-mode-tag').textContent = state.mode === 'COMANAGED' ? 'Co-managed · Question 1 of 4' : 'Question 1 of 4';
+  setTimeout(() => show('s-bundle'), 220);
+}));
 
 /* bundle choice → straight to users */
 $$('#s-bundle .choice').forEach(c => c.addEventListener('click', () => {
@@ -72,7 +99,8 @@ $('#in-tickets').addEventListener('input', () => {
   render();
 });
 
-/* workings table — per-quote include/exclude + cost overrides (delegated: rows are rebuilt every render) */
+/* workings table — co-managed only: per-quote include/exclude (delegated: rows are rebuilt every render).
+   Standard quotes render no checkbox at all, so this only ever fires when mode is co-managed. */
 $('#r-table tbody').addEventListener('change', e => {
   const key = e.target.closest('tr')?.dataset.key;
   if (!key) return;
@@ -80,16 +108,6 @@ $('#r-table tbody').addEventListener('change', e => {
     if (e.target.checked) state.excluded.delete(key); else state.excluded.add(key);
     render();
   }
-});
-$('#r-table tbody').addEventListener('input', e => {
-  const key = e.target.closest('tr')?.dataset.key;
-  if (!key || !e.target.matches('.line-cost')) return;
-  const v = parseFloat(e.target.value);
-  const defaultUnit = parseFloat(e.target.dataset.default);
-  if (isNaN(v) || v < 0) return;
-  if (Math.abs(v - defaultUnit) < 1e-9) delete state.unitOverrides[key];
-  else state.unitOverrides[key] = v;
-  render();
 });
 
 /* add services from the master catalog that aren't already on this quote —
@@ -149,37 +167,34 @@ $('#btn-addservice-commit').addEventListener('click', () => {
 function currentOpts() {
   return { bundle: state.bundle, users: state.users, servers: state.servers, charity: state.charity,
            markup: state.markup, ticketsOverride: state.ticketsOverride,
-           excluded: state.excluded, added: state.added, unitOverrides: state.unitOverrides };
+           excluded: state.excluded, added: state.added };
 }
 
-/* restart */
+/* restart — full reset, back to the standard/co-managed choice */
 $('#restart').addEventListener('click', () => {
-  state.bundle = state.users = state.servers = state.charity = state.ticketsOverride = null;
+  state.mode = state.bundle = state.users = state.servers = state.charity = state.ticketsOverride = null;
   state.markup = MODEL.defaultMarkup;
   resetCustomization();
   $('#in-markup').value = 80;
   $('#in-users').value = ''; $('#in-servers').value = ''; $('#in-tickets').value = '';
   $$('.choice').forEach(x => x.classList.remove('sel'));
-  show('s-bundle');
+  show('s-mode');
 });
 
-/* deep link: ?b=SECURE&u=300&s=4&c=yes → straight to the answer (shareable) */
+/* deep link: ?b=SECURE&u=300&s=4&c=yes&mode=comanaged → straight to the answer (shareable) */
 (function () {
   const p = new URLSearchParams(location.search);
   if (!p.has('u')) return;
+  state.mode = p.get('mode') === 'comanaged' ? 'COMANAGED' : 'STANDARD';
   state.bundle = BUNDLES[p.get('b')] ? p.get('b') : 'SECURE';
   state.users = Math.max(1, parseInt(p.get('u'), 10) || 1);
   state.servers = Math.max(0, parseInt(p.get('s') || '0', 10) || 0);
   state.charity = p.get('c') === 'yes';
   if (p.has('m')) { state.markup = (parseFloat(p.get('m')) || 80) / 100; $('#in-markup').value = parseFloat(p.get('m')) || 80; }
   if (p.has('t')) { const t = parseFloat(p.get('t')); if (!isNaN(t) && t >= 0) { state.ticketsOverride = t; $('#in-tickets').value = t; } }
-  if (p.has('x')) state.excluded = new Set(p.get('x').split(',').filter(Boolean));
+  /* excluding a line only makes sense for co-managed quotes — standard bundles can't drop lines */
+  if (p.has('x') && state.mode === 'COMANAGED') state.excluded = new Set(p.get('x').split(',').filter(Boolean));
   if (p.has('a')) state.added = p.get('a').split(',').filter(k => SERVICES[k]);
-  if (p.has('o')) p.get('o').split(',').forEach(pair => {
-    const [key, val] = pair.split(':');
-    const v = parseFloat(val);
-    if (SERVICES[key] && !isNaN(v) && v >= 0) state.unitOverrides[key] = v;
-  });
   $('#in-users').value = state.users; $('#in-servers').value = state.servers;
   show('s-result');
 })();
@@ -191,7 +206,7 @@ function render() {
   $('#tickets-note').hidden = !r.flags.ticketsOverridden;
 
   /* headline — keep the standard price visible whenever anything discounts it (the anchor) */
-  $('#r-eyebrow').textContent = `totalIT · ${r.bundleName} Bundle · ${state.users} users` + (state.servers ? ` · ${state.servers} servers` : '');
+  $('#r-eyebrow').textContent = `totalIT · ${r.bundleName} Bundle` + (state.mode === 'COMANAGED' ? ' · Co-managed' : '') + ` · ${state.users} users` + (state.servers ? ` · ${state.servers} servers` : '');
   $('#r-peruser').textContent = gbp.format(r.perUser);
   const anchor = priceBundle({ ...opts, charity: false, markup: MODEL.defaultMarkup });
   const discounted = r.perUser < anchor.perUser - 0.005;
@@ -263,11 +278,9 @@ function render() {
   if (r.flags.customized) {
     const removed = r.lines.filter(l => !l.included).length;
     const addedN = r.lines.filter(l => l.addedExtra).length;
-    const overridden = r.lines.filter(l => l.overridden).length;
     const bits = [];
     if (removed) bits.push(`${removed} service${removed > 1 ? 's' : ''} removed`);
     if (addedN) bits.push(`${addedN} service${addedN > 1 ? 's' : ''} added`);
-    if (overridden) bits.push(`${overridden} cost${overridden > 1 ? 's' : ''} adjusted`);
     flags.push(`<b>This quote is customized</b> — ${bits.join(', ')} from the standard ${r.bundleName} bundle. See "Workings" for exactly what changed.`);
   }
   $('#r-flags').innerHTML = flags.map(f => `<div class="flag">${f}</div>`).join('');
@@ -278,19 +291,28 @@ function render() {
     r.lines.filter(l => l.included && l.cost > 0).map(l => `<li>${l.name}</li>`).join('') +
     `</ul><p class="printfoot">Prepared by ramsac · ${r.bundleName} bundle · ${state.users} users${state.servers ? `, ${state.servers} servers` : ''} · figures ex VAT.</p>`;
 
-  /* workings table — checkbox to include/exclude, editable unit cost per line */
+  /* workings summary/hint — Standard is locked (view-only, no checkbox column at all);
+     Co-managed keeps the include/exclude checkbox. Unit cost is read-only everywhere —
+     that only ever changes on the master costs page now. */
+  const comanaged = state.mode === 'COMANAGED';
+  $('#workings-summary').textContent = comanaged ? 'Workings — select services' : 'Workings';
+  $('#workings-hint').textContent = comanaged
+    ? 'Untick a line that’s handled by the client or a third party to drop it from this quote. Add a service below for anything extra. Costs are fixed — see the master costs page to change a unit cost.'
+    : 'Every line here is part of the standard bundle and can’t be removed. Add a service below if this deal needs something extra. Costs are fixed — see the master costs page to change a unit cost.';
+
+  /* workings table — co-managed gets a checkbox to include/exclude; standard has none */
   const tb = $('#r-table tbody');
   tb.innerHTML = r.lines.map(l => `
     <tr class="${l.included ? '' : 'excluded'}" data-key="${l.key}">
-      <td><input type="checkbox" class="line-include" ${l.included ? 'checked' : ''} aria-label="Include ${l.name}"></td>
-      <td>${l.name}${l.addedExtra ? ' <span class="addedtag">added</span>' : ''}${l.note ? `<div class="tnote">${l.note}</div>` : ''}${l.overridden ? `<div class="tnote">standard ${gbp.format(l.defaultUnit)}</div>` : ''}</td>
-      <td class="r"><input type="number" class="line-cost" value="${l.unit}" data-default="${l.defaultUnit}" min="0" step="0.01" aria-label="Unit cost for ${l.name}"></td>
+      <td>${comanaged ? `<input type="checkbox" class="line-include" ${l.included ? 'checked' : ''} aria-label="Include ${l.name}">` : ''}</td>
+      <td>${l.name}${l.addedExtra ? ' <span class="addedtag">added</span>' : ''}${l.note ? `<div class="tnote">${l.note}</div>` : ''}</td>
+      <td class="r">${gbp.format(l.unit)}</td>
       <td>${l.unitLabel}</td>
       <td class="r">${num(l.units)}</td>
       <td class="r">${gbp.format(l.cost)}</td>
     </tr>`).join('') + `
-    <tr class="total"><td></td><td>Cost to provide ${r.bundleName.toUpperCase()} bundle${r.flags.customized ? ' (as customized)' : ''}</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>
-    <tr class="total"><td></td><td>Price to sell${state.charity ? ' (charity −10%)' : ''} · markup ${Math.round(state.markup * 100)}%</td><td></td><td></td><td></td><td class="r">${gbp.format(r.sell)}</td></tr>`;
+    <tr class="total row-cost"><td></td><td><span class="total-sign">&minus;</span>Cost to provide ${r.bundleName.toUpperCase()} bundle${r.flags.customized ? ' (as customized)' : ''}</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>
+    <tr class="total row-sell"><td></td><td><span class="total-sign">=</span>Price to sell${state.charity ? ' (charity −10%)' : ''} · markup ${Math.round(state.markup * 100)}%</td><td></td><td></td><td></td><td class="r">${gbp.format(r.sell)}</td></tr>`;
 
   /* keep the add-service panel's list in sync if it's open while something else re-renders */
   if (!$('#addservice-panel').hidden) renderAddServicePanel();

@@ -93,6 +93,16 @@ input.num[type=number]{-moz-appearance:textfield}
 .badge .d{width:.5rem;height:.5rem;border-radius:50%;background:var(--red)}
 .badge.blue{color:var(--blue); border-color:color-mix(in srgb,var(--blue) 45%, transparent)}
 .badge.blue .d{background:var(--blue)}
+a.badge{text-decoration:none; transition:transform .3s var(--ease), border-color .3s}
+a.badge:hover{transform:translateY(-2px); border-color:var(--red)}
+
+/* compact filter pills — bundle toggle on the master costs page */
+.pillbar{display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1.4rem; align-items:center}
+.pill{font-family:"Geist"; font-weight:600; font-size:.82rem; padding:.5rem 1.15rem; border-radius:999px;
+  border:1.5px solid color-mix(in srgb,var(--blue) 30%, transparent); color:var(--ink); background:transparent;
+  cursor:pointer; transition:transform .3s var(--ease), border-color .3s, background .3s}
+.pill:hover{transform:translateY(-2px); border-color:color-mix(in srgb,var(--orange) 75%, transparent)}
+.pill.sel{background:var(--ink); color:var(--cream); border-color:var(--ink)}
 
 .cards{display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-top:2.6rem}
 .card{border:1px solid color-mix(in srgb,var(--blue) 24%, transparent); border-radius:16px;
@@ -141,13 +151,18 @@ th{font-weight:600; font-size:.64rem; letter-spacing:.16em; text-transform:upper
 td{padding:.55rem .8rem; border-bottom:1px solid color-mix(in srgb,var(--blue) 12%, transparent); vertical-align:top}
 td.r,th.r{text-align:right; font-variant-numeric:tabular-nums}
 tr.total td{font-weight:700; border-bottom:none; border-top:2px solid var(--ink); padding-top:.8rem}
-.tnote{font-size:.78rem; color:var(--blue)}
+tr.total .total-sign{display:inline-block; width:1.3em; font-weight:700}
+tr.total.row-cost td:nth-child(2){padding-left:1.6rem}
+tr.total.row-sell{background:var(--ink)}
+tr.total.row-sell td{color:var(--cream); padding:.9rem .8rem; border-bottom:3px solid var(--orange)}
+.tnote{font-size:.78rem; color:var(--blue); margin-top:.3rem}
 tr[data-key] td:first-child{width:1.6rem}
 tr[data-key] .line-include{width:1.05rem; height:1.05rem; accent-color:var(--ink); cursor:pointer}
 tr.excluded td{opacity:.4; text-decoration:line-through}
 tr.excluded .line-include{opacity:1; text-decoration:none}
-.addedtag{font-size:.62rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--teal);
-  border:1px solid color-mix(in srgb,var(--teal) 55%, transparent); border-radius:999px; padding:.1rem .5rem; margin-left:.4rem}
+.addedtag{font-size:.62rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+  color:color-mix(in srgb,var(--teal) 82%, white 18%);
+  border:1.5px solid color-mix(in srgb,var(--teal) 80%, transparent); border-radius:999px; padding:.1rem .5rem; margin-left:.4rem}
 input.line-cost{width:5.4rem; font-family:"Geist"; font-weight:600; font-size:.88rem; text-align:right;
   background:transparent; border:1px solid color-mix(in srgb,var(--blue) 30%, transparent);
   border-radius:8px; padding:.3rem .5rem; color:var(--ink); outline:none}
