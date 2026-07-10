@@ -156,7 +156,7 @@ tr.total.row-cost td:nth-child(2){padding-left:1.6rem}
 tr.total.row-sell{background:var(--ink)}
 tr.total.row-sell td{color:var(--cream); padding:.9rem .8rem; border-bottom:3px solid var(--orange)}
 .tnote{font-size:.78rem; color:var(--blue); margin-top:.3rem}
-tr[data-key] td:first-child{width:1.6rem}
+#r-table tr[data-key] td:first-child{width:1.6rem}
 tr[data-key] .line-include{width:1.05rem; height:1.05rem; accent-color:var(--ink); cursor:pointer}
 tr.excluded td{opacity:.4; text-decoration:line-through}
 tr.excluded .line-include{opacity:1; text-decoration:none}
