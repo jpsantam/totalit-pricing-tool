@@ -305,6 +305,8 @@ function render() {
     if (addedN) bits.push(`${addedN} service${addedN > 1 ? 's' : ''} added`);
     flags.push(`<b>This quote is customized</b> — ${bits.join(', ')} from the standard ${r.bundleName} bundle. See "Workings" for exactly what changed.`);
   }
+  if (r.flags.hasFlatAdd)
+    flags.push(`<b>Includes ${gbp.format(r.flatAdd)}/mo in flat add-on(s) held outside margin.</b> Unlike every other line, these don't scale with the markup % above — they're added to the price at their exact value, same as the source spreadsheet's approach until a real cost is known.`);
   $('#r-flags').innerHTML = flags.map(f => `<div class="flag">${f}</div>`).join('');
 
   /* client-safe print page: price + what's included, nothing internal */
@@ -333,7 +335,9 @@ function render() {
       <td class="r">${num(l.units)}</td>
       <td class="r">${gbp.format(l.cost)}</td>
     </tr>`).join('') + `
-    <tr class="total row-cost"><td></td><td><span class="total-sign">&minus;</span>Cost to provide ${r.bundleName.toUpperCase()} bundle${r.flags.customized ? ' (as customized)' : ''}</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>
+    <tr class="total row-cost"><td></td><td><span class="total-sign">&minus;</span>Cost to provide ${r.bundleName.toUpperCase()} bundle${r.flags.customized ? ' (as customized)' : ''}</td><td></td><td></td><td></td><td class="r">${gbp.format(r.cost)}</td></tr>` +
+    (r.flags.hasFlatAdd ? `
+    <tr class="total row-flatadd"><td></td><td><span class="total-sign">+</span>Flat add-on(s), no margin applied</td><td></td><td></td><td></td><td class="r">${gbp.format(r.flatAdd)}</td></tr>` : '') + `
     <tr class="total row-sell"><td></td><td><span class="total-sign">=</span>Price to sell${state.charity ? ' (charity −10%)' : ''} · markup ${Math.round(state.markup * 100)}%</td><td></td><td></td><td></td><td class="r">${gbp.format(r.sell)}</td></tr>`;
 
   /* keep the add-service panel's list in sync if it's open while something else re-renders */

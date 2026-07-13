@@ -242,6 +242,16 @@ given standard inclusion on at all.
 | `hours` | a fixed `hrs` value on the item itself, e.g. `{ hrs: 2 }` |
 | `tcHours` | the bundle's own `tcHours` constant |
 | `fixed` | a flat monthly amount, independent of users/servers |
+| `fixedPriceAdd` | a flat monthly amount added straight to the sell price, with no markup applied and no cost/margin impact — see below |
+
+**`fixedPriceAdd`** is for a surcharge whose real cost isn't known yet (e.g.
+Inforcer, before it gets a proper per-user cost): the unit amount is held
+exactly as entered — raising or lowering the markup slider never scales it —
+and it's excluded from `cost`/margin entirely, since there's no real cost
+behind it yet. Charity's 10% still discounts it, same as everything else in
+the sell price. Workings shows it as a separate "Flat add-on(s), no margin
+applied" total row. Once a real cost exists, switch its `basis` to whatever
+fits (usually `user`) and it becomes an ordinary markupable line.
 
 Use `fixed` for annual/one-off costs the sheet amortises over 12 months
 (Premium's board briefing, Cyber Essentials cert, ISO 27001 gap analysis,

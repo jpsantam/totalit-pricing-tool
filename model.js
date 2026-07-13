@@ -95,34 +95,45 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
       case 'slHours':    units = slHrs;          unitLabel = 'per hour';   break;
       case 'cyberHours': units = cyberBand.hrs;  unitLabel = 'per hour';   break;
       case 'tcHours':    units = b.tcHours;      unitLabel = 'per hour';   break;
-      case 'fixed':      units = 1;              unitLabel = 'fixed p/m'; break;
+      case 'fixed':         units = 1;           unitLabel = 'fixed p/m'; break;
+      case 'fixedPriceAdd': units = 1;           unitLabel = 'fixed p/m, no margin'; break;
       default:           units = it.hrs;         unitLabel = 'per hour';
     }
     return { ...it, units, unitLabel,
              included: !excludedSet.has(it.key),
              addedExtra: !b.items.includes(it),
              cost: it.unit * units,
-             serverDriven: it.basis === 'server' };
+             serverDriven: it.basis === 'server',
+             noMarkup: it.basis === 'fixedPriceAdd' };
   });
 
   const includedLines = lines.filter(l => l.included);
-  const cost = includedLines.reduce((s, l) => s + l.cost, 0);
-  const price = cost * (1 + markup);
+  // `fixedPriceAdd` lines (e.g. a surcharge with no known cost yet) skip markup
+  // entirely — they're a flat addition to price, not a cost that gets grossed
+  // up. They're excluded from `cost`/margin (there's no real cost behind them
+  // yet) and added straight into `price` post-markup, then spread across the
+  // per-user rate (never per-server) same as the sheet's own way of doing this.
+  const markupLines = includedLines.filter(l => !l.noMarkup);
+  const flatAddLines = includedLines.filter(l => l.noMarkup);
+  const cost = markupLines.reduce((s, l) => s + l.cost, 0);
+  const flatAdd = flatAddLines.reduce((s, l) => s + l.cost, 0);
+  const price = cost * (1 + markup) + flatAdd;
   const discount = charity ? MODEL.charityDiscount : 0;
   const sell = price * (1 - discount);
 
   // The sheet quotes a per-user and a per-server rate. Server-driven line items
   // are allocated to the server rate; everything else (including the fixed
-  // compliance costs, which the sheet has no per-server equivalent for) to the
-  // user rate. With 0 servers this reproduces the sheet exactly; with servers
-  // it is an assumption to confirm — the shared tabs never had servers > 0.
-  const serverCost = includedLines.filter(l => l.serverDriven).reduce((s, l) => s + l.cost, 0);
+  // compliance costs, which the sheet has no per-server equivalent for, and
+  // any fixedPriceAdd surcharge) to the user rate. With 0 servers this
+  // reproduces the sheet exactly; with servers it is an assumption to confirm
+  // — the shared tabs never had servers > 0.
+  const serverCost = markupLines.filter(l => l.serverDriven).reduce((s, l) => s + l.cost, 0);
   const userCost = cost - serverCost;
-  const perUser   = users   ? (userCost   * (1 + markup) * (1 - discount)) / users   : 0;
+  const perUser   = users   ? ((userCost * (1 + markup) + flatAdd) * (1 - discount)) / users   : 0;
   const perServer = servers ? (serverCost * (1 + markup) * (1 - discount)) / servers : 0;
 
   return {
-    lines, cost, price, sell, perUser, perServer,
+    lines, cost, price, sell, perUser, perServer, flatAdd,
     costPerUser: users ? userCost / users : 0,
     margin: sell ? (sell - cost) / sell : 0,
     bundleName: b.name, tcHours: b.tcHours,
@@ -133,6 +144,7 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
       cyberBandUndefined: !!cyberBand.undefinedInSheet,
       serverSplitAssumed: servers > 0,
       customized: excludedSet.size > 0 || extraItems.length > 0,
+      hasFlatAdd: flatAdd > 0,
     },
   };
 }
