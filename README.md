@@ -140,12 +140,14 @@ The tool nudges good practice without labelling it as such:
 - `app.js` — question flow + rendering, including the standard/co-managed
   mode. `index.html` / `style.css` — UI, on the Ironbridge/ramsac brand
   primitives (Charger + Geist, cream/ink/blue).
-- `master.html` / `master.js` — the master costs editor. Commits straight
-  to `costs.json` via the GitHub API using a personal access token — see
+- `master.html` / `master.js` — the master costs editor: unit costs, and
+  "+ Add a new service" for brand-new lines. Commits straight to
+  `costs.json` via the GitHub API using a personal access token — see
   "Master costs page" below. `costs.json` — the live unit-cost overrides
-  `app.js` reads on every load; empty until the first save. `worker/` — a
-  parked Cloudflare Worker for a real-time alternative to this, not
-  currently wired up (see below).
+  and custom service definitions `app.js` reads on every load (via
+  `model.js`'s `applyCustomServices()`); empty until the first save.
+  `worker/` — a parked Cloudflare Worker for a real-time alternative to
+  this, not currently wired up (see below).
 
 All three bundles are verified to reproduce the source Excel exactly:
 
@@ -209,27 +211,24 @@ Worker + KV version of this same idea — built, not deployed. Worth
 switching to if the GitHub-token-per-editor model becomes friction, or if
 "a few minutes" stops being fast enough.
 
-**Adding a brand-new service still goes through `services.js` directly,
-not this page** — `master.html` only changes the live `unit` on services
-that already exist. Name, `basis`, and which bundles include it are
-structural, reviewed via git, same as always.
+**Adding a brand-new service now goes through this page too** — "+ Add a
+new service" on `master.html`. Name, unit cost, `basis`, and which bundles
+it belongs to (with an independent per-bundle "co-managed default" toggle)
+are entered there and committed straight into `costs.json`'s
+`customServices` object, keyed by a slug generated from the name (e.g.
+"Inforcer surcharge" → `INFORCER_SURCHARGE`). `app.js`/`master.js` both
+merge `customServices` into `SERVICES`/`BUNDLES` at load time (see
+`model.js`'s `applyCustomServices()`), before the `units` overrides are
+applied — so a custom service's cost is then editable the same way as any
+built-in one, in the same table. Reserve editing `services.js` directly for
+the handful of services that predate this (the sheet's original line
+items) or a bulk/scripted change — anything routine goes through the page.
 
-## Editing costs
-
-**To add a brand-new service** (e.g. Inforcer costs):
-
-1. Add an entry to `services.js`:
-   ```js
-   INFORCER: { name: 'Inforcer — MDM & compliance', unit: 1.85, basis: 'user' },
-   ```
-2. Reference it from whichever bundle file(s) it belongs to, e.g. in
-   `premium.js`:
-   ```js
-   items: [
-     ...
-     SERVICES.INFORCER,
-   ],
-   ```
+**Co-managed default**, per bundle: ticked means the line starts included
+when a co-managed quote for that bundle opens (same as any built-in
+service); unticked means it starts excluded but the RM can still tick it
+on in Workings, or pull it in via "add a service" on any bundle it wasn't
+given standard inclusion on at all.
 
 **`basis`** controls what the unit cost multiplies against:
 

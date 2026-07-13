@@ -31,8 +31,20 @@ const num = n => Number.isInteger(n) ? n : +n.toFixed(2);
 let password = '';
 let currentSha = null; // null means costs.json doesn't exist yet (first save creates it)
 let liveUnits = {};
+let customServices = {}; // key -> { name, basis, unit, hrs?, bundles: { ESSENTIALS: {standard, comanaged}, ... } }
 let activeBundle = 'ALL';
 let searchQuery = '';
+
+const BUNDLE_KEYS = ['ESSENTIALS', 'SECURE', 'PREMIUM'];
+
+/* Turns a service name into a stable SERVICES key, de-duped against
+   whatever's already registered (built-in or custom). */
+function slugKey(name) {
+  const base = name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'SERVICE';
+  let key = base, n = 2;
+  while (SERVICES[key]) key = `${base}_${n++}`;
+  return key;
+}
 
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
@@ -123,6 +135,7 @@ async function loadCurrent() {
   if (res.status === 404) {
     currentSha = null;
     liveUnits = {};
+    customServices = {};
     $('#updated-at').textContent = '';
     return;
   }
@@ -131,6 +144,11 @@ async function loadCurrent() {
   currentSha = data.sha;
   const parsed = JSON.parse(b64DecodeUtf8(data.content));
   liveUnits = parsed.units || {};
+  customServices = parsed.customServices || {};
+  applyCustomServices(customServices); // must run before the unit-override loop below, so custom keys already exist in SERVICES
+  Object.entries(liveUnits).forEach(([key, unit]) => {
+    if (SERVICES[key] && Number.isFinite(unit) && unit >= 0) SERVICES[key].unit = unit;
+  });
   $('#updated-at').textContent = parsed.updatedAt
     ? `Live as of ${new Date(parsed.updatedAt).toLocaleString('en-GB')}. Anything not listed is still the services.js default.`
     : '';
@@ -166,7 +184,7 @@ $('#save-btn').addEventListener('click', async () => {
   $('#save-status').textContent = 'Saving…';
   const body = {
     message: 'Update master costs via master.html',
-    content: b64EncodeUtf8(JSON.stringify({ units, updatedAt: new Date().toISOString() }, null, 2)),
+    content: b64EncodeUtf8(JSON.stringify({ units, customServices, updatedAt: new Date().toISOString() }, null, 2)),
     branch: GITHUB_BRANCH,
   };
   if (currentSha) body.sha = currentSha;
@@ -184,7 +202,7 @@ $('#save-btn').addEventListener('click', async () => {
     const data = await res.json();
     currentSha = data.content.sha;
     liveUnits = units;
-    $('#save-status').textContent = 'Committed — live once GitHub Pages rebuilds (usually under a minute).';
+    $('#save-status').textContent = 'Saved.';
   } catch (err) {
     if (err.message === 'unauthorized') {
       sessionStorage.removeItem(PASSWORD_KEY);
@@ -198,6 +216,79 @@ $('#save-btn').addEventListener('click', async () => {
     }
   }
 });
+
+/* ===== add a new service — writes into customServices, merged live via
+   applyCustomServices() so it shows in the table immediately; only actually
+   persisted once "Save" is clicked, same as any unit-cost edit. ===== */
+function resetAddNewServiceForm() {
+  $('#ns-name').value = '';
+  $('#ns-basis').value = 'user';
+  $('#ns-hrs').value = '';
+  $('#ns-hrs-wrap').hidden = true;
+  $('#ns-unit').value = '';
+  $('#ns-error').hidden = true;
+  document.querySelectorAll('#addnewservice-panel .ns-bundle-table tbody tr').forEach(tr => {
+    tr.querySelector('.ns-standard').checked = false;
+    const co = tr.querySelector('.ns-comanaged');
+    co.checked = true;
+    co.disabled = true;
+  });
+}
+function openAddNewService() {
+  resetAddNewServiceForm();
+  $('#addnewservice-panel').hidden = false;
+  $('#btn-addnewservice-toggle').setAttribute('aria-expanded', 'true');
+  setTimeout(() => $('#ns-name').focus(), 60);
+}
+function closeAddNewService() {
+  $('#addnewservice-panel').hidden = true;
+  $('#btn-addnewservice-toggle').setAttribute('aria-expanded', 'false');
+}
+$('#btn-addnewservice-toggle').addEventListener('click', () => {
+  $('#addnewservice-panel').hidden ? openAddNewService() : closeAddNewService();
+});
+$('#btn-addnewservice-cancel').addEventListener('click', closeAddNewService);
+
+$('#ns-basis').addEventListener('change', () => {
+  $('#ns-hrs-wrap').hidden = $('#ns-basis').value !== 'hours';
+});
+
+document.querySelectorAll('#addnewservice-panel .ns-standard').forEach(cb => cb.addEventListener('change', () => {
+  const co = cb.closest('tr').querySelector('.ns-comanaged');
+  co.disabled = !cb.checked;
+  co.checked = cb.checked;
+}));
+
+$('#btn-addnewservice-save').addEventListener('click', () => {
+  const err = $('#ns-error');
+  const name = $('#ns-name').value.trim();
+  const basis = $('#ns-basis').value;
+  const unit = parseFloat($('#ns-unit').value);
+  const hrs = parseFloat($('#ns-hrs').value);
+
+  if (!name) return showNsError('Name is required.');
+  if (isNaN(unit) || unit < 0) return showNsError('Unit cost must be 0 or more.');
+  if (basis === 'hours' && (isNaN(hrs) || hrs < 0)) return showNsError('Hours is required for the hours basis.');
+
+  const bundles = {};
+  document.querySelectorAll('#addnewservice-panel .ns-bundle-table tbody tr').forEach(tr => {
+    if (tr.querySelector('.ns-standard').checked) {
+      bundles[tr.dataset.bundle] = { standard: true, comanaged: tr.querySelector('.ns-comanaged').checked };
+    }
+  });
+  if (!Object.keys(bundles).length) return showNsError('Pick at least one bundle.');
+
+  const key = slugKey(name);
+  const def = { name, basis, unit, bundles };
+  if (basis === 'hours') def.hrs = hrs;
+  customServices[key] = def;
+  applyCustomServices(customServices);
+
+  closeAddNewService();
+  renderTable();
+  $('#save-status').textContent = `Added "${name}" — click Save to commit.`;
+});
+function showNsError(msg) { const err = $('#ns-error'); err.textContent = msg; err.hidden = false; }
 
 /* re-use a password already unlocked earlier this browser tab session */
 (function () {

@@ -3,7 +3,24 @@
 const state = { mode: null, bundle: null, users: null, servers: null, charity: null, markup: MODEL.defaultMarkup, ticketsOverride: null,
   excluded: new Set(), added: [] };
 
-function resetCustomization() { state.excluded = new Set(); state.added = []; }
+function resetCustomization() { state.excluded = new Set(); state.added = []; comanagedDefaultsPending = true; }
+
+/* A custom service can be on a bundle's standard line-up but opted out of the
+   co-managed default (set via the master costs page's "co-managed default"
+   checkbox) — those pre-exclude when a co-managed quote first reaches the
+   results screen, same as if the RM had unticked them, but still retickable.
+   Runs once per fresh quote (guarded by the pending flag reset in
+   resetCustomization()) so it never re-applies over a manual re-tick. Waits
+   on costsReady since CUSTOM_COMANAGED_OFF is only populated once
+   costs.json's customServices has loaded. */
+let comanagedDefaultsPending = false;
+function applyComanagedDefaultsIfPending() {
+  if (!comanagedDefaultsPending) return;
+  comanagedDefaultsPending = false;
+  if (state.mode === 'COMANAGED' && CUSTOM_COMANAGED_OFF[state.bundle]) {
+    CUSTOM_COMANAGED_OFF[state.bundle].forEach(k => state.excluded.add(k));
+  }
+}
 
 /* Live unit costs — committed straight to costs.json by the master costs
    page (master.html), which writes to this repo via the GitHub API. The
@@ -16,7 +33,9 @@ function resetCustomization() { state.excluded = new Set(); state.added = []; }
 const costsReady = fetch('costs.json?t=' + Date.now())
   .then(r => r.ok ? r.json() : null)
   .then(data => {
-    if (!data || !data.units) return;
+    if (!data) return;
+    applyCustomServices(data.customServices); // must run first — creates SERVICES entries the units override below can then match
+    if (!data.units) return;
     Object.entries(data.units).forEach(([key, unit]) => {
       if (SERVICES[key] && Number.isFinite(unit) && unit >= 0) SERVICES[key].unit = unit;
     });
@@ -34,7 +53,7 @@ function show(id) {
   $('#' + id).classList.add('on');
   const input = $('#' + id + ' input.num');
   if (input) setTimeout(() => input.focus(), 60);
-  if (id === 's-result') costsReady.then(render);
+  if (id === 's-result') costsReady.then(() => { applyComanagedDefaultsIfPending(); render(); });
 }
 
 /* nav buttons */
@@ -192,8 +211,11 @@ $('#restart').addEventListener('click', () => {
   state.charity = p.get('c') === 'yes';
   if (p.has('m')) { state.markup = (parseFloat(p.get('m')) || 80) / 100; $('#in-markup').value = parseFloat(p.get('m')) || 80; }
   if (p.has('t')) { const t = parseFloat(p.get('t')); if (!isNaN(t) && t >= 0) { state.ticketsOverride = t; $('#in-tickets').value = t; } }
-  /* excluding a line only makes sense for co-managed quotes — standard bundles can't drop lines */
+  /* excluding a line only makes sense for co-managed quotes — standard bundles can't drop lines.
+     An explicit x= is authoritative (the link already baked in whatever was excluded when it was
+     generated); only fall back to the co-managed defaults when the link doesn't specify one. */
   if (p.has('x') && state.mode === 'COMANAGED') state.excluded = new Set(p.get('x').split(',').filter(Boolean));
+  else comanagedDefaultsPending = state.mode === 'COMANAGED';
   if (p.has('a')) state.added = p.get('a').split(',').filter(k => SERVICES[k]);
   $('#in-users').value = state.users; $('#in-servers').value = state.servers;
   show('s-result');

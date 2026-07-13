@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>totalIT — master costs</title>
-<link rel="stylesheet" href="style.css?v=2026071008">
+<link rel="stylesheet" href="style.css?v=2026071301">
 </head>
 <body>
 <div class="app">
@@ -53,13 +53,61 @@
       </div>
 
       <div class="result-actions">
-        <button class="btn" id="save-btn" type="button">Save — commits to costs.json</button>
+        <button class="btn ghost" id="btn-addnewservice-toggle" type="button" aria-expanded="false">+ Add a new service</button>
+      </div>
+
+      <div class="workings" id="addnewservice-panel" hidden style="margin-top:1rem; padding:1.2rem">
+        <div class="qfoot" style="flex-wrap:wrap; align-items:flex-end">
+          <label class="qcontext" style="margin:0; max-width:none">Name<br>
+            <input type="text" id="ns-name" style="width:16rem; text-align:left" autocomplete="off"></label>
+          <label class="qcontext" style="margin:0; max-width:none">Basis<br>
+            <select id="ns-basis">
+              <option value="user">user</option>
+              <option value="server">server</option>
+              <option value="ticket">ticket</option>
+              <option value="slHours">slHours</option>
+              <option value="cyberHours">cyberHours</option>
+              <option value="tcHours">tcHours</option>
+              <option value="hours">hours (fixed hrs × hourly rate)</option>
+              <option value="fixed">fixed (flat p/m)</option>
+            </select></label>
+          <label class="qcontext" id="ns-hrs-wrap" hidden style="margin:0; max-width:none">Hours<br>
+            <input type="number" id="ns-hrs" min="0" step="0.1" style="width:6rem; text-align:left"></label>
+          <label class="qcontext" style="margin:0; max-width:none">Unit cost (£)<br>
+            <input type="number" id="ns-unit" min="0" step="0.01" style="width:8rem; text-align:left"></label>
+        </div>
+
+        <table class="ns-bundle-table" style="margin-top:1.2rem">
+          <thead><tr><th>Bundle</th><th class="r">Standard line-up</th><th class="r">Co-managed default</th></tr></thead>
+          <tbody>
+            <tr data-bundle="ESSENTIALS"><td>Essentials</td>
+              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Essentials standard"></td>
+              <td class="r"><input type="checkbox" class="ns-comanaged" checked disabled aria-label="Include in Essentials co-managed default"></td></tr>
+            <tr data-bundle="SECURE"><td>Secure</td>
+              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Secure standard"></td>
+              <td class="r"><input type="checkbox" class="ns-comanaged" checked disabled aria-label="Include in Secure co-managed default"></td></tr>
+            <tr data-bundle="PREMIUM"><td>Premium</td>
+              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Premium standard"></td>
+              <td class="r"><input type="checkbox" class="ns-comanaged" checked disabled aria-label="Include in Premium co-managed default"></td></tr>
+          </tbody>
+        </table>
+        <p class="qcontext">Standard adds it as a locked line in that bundle. Co-managed default
+          controls whether it starts ticked when a co-managed quote for that bundle opens — either
+          way the RM can tick/untick it per quote, and it's always available via "add a service" even
+          on bundles left unticked here.</p>
+
+        <div class="result-actions" style="margin-top:1rem">
+          <button class="btn" id="btn-addnewservice-save" type="button">Add service</button>
+          <button class="btn ghost" id="btn-addnewservice-cancel" type="button">Cancel</button>
+        </div>
+        <p class="advnote" id="ns-error" hidden style="margin-top:.6rem"></p>
+      </div>
+
+      <div class="result-actions">
+        <button class="btn" id="save-btn" type="button">Save</button>
         <span class="qhint" id="save-status"></span>
         <a class="btn ghost" href="index.html">Back to pricing tool</a>
       </div>
-      <p class="qcontext" style="margin-top:1.4rem">To add a brand-new service (name, basis, which bundles
-        it belongs to) edit <code>services.js</code> in the repo instead — this page only changes the
-        live <code>unit</code> figure on services that already exist. See README.md → "Editing costs".</p>
     </section>
 
   </div>
@@ -67,11 +115,11 @@
   <div class="wrap foot"><span class="d"></span><b>ramsac</b>&nbsp;· totalIT master costs · internal, restricted</div>
 </div>
 
-<script src="services.js?v=2026071008"></script>
-<script src="model.js?v=2026071008"></script>
-<script src="secure.js?v=2026071008"></script>
-<script src="essentials.js?v=2026071008"></script>
-<script src="premium.js?v=2026071008"></script>
-<script src="master.js?v=2026071008"></script>
+<script src="services.js?v=2026071301"></script>
+<script src="model.js?v=2026071301"></script>
+<script src="secure.js?v=2026071301"></script>
+<script src="essentials.js?v=2026071301"></script>
+<script src="premium.js?v=2026071301"></script>
+<script src="master.js?v=2026071301"></script>
 </body>
 </html>

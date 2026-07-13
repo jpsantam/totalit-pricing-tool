@@ -36,6 +36,33 @@ const MODEL = {
 /* Populated by secure.js / essentials.js / premium.js. */
 const BUNDLES = {};
 
+/* Populated by applyCustomServices() below — bundle key -> Set of custom
+   service keys that are on that bundle's standard line-up but NOT included
+   by default when a co-managed quote starts (still addable manually via
+   "add a service", and the RM can tick it back on in Workings). */
+const CUSTOM_COMANAGED_OFF = {};
+
+/* Merges services added via the master costs page (master.html) into
+   SERVICES/BUNDLES at runtime. `customServices` is the `customServices` key
+   from costs.json: { KEY: { name, basis, unit, hrs?, bundles: { ESSENTIALS:
+   {standard, comanaged}, ... } } }. Idempotent — safe to call more than once
+   with the same data (e.g. costs.json reloaded after a save conflict). */
+function applyCustomServices(customServices) {
+  Object.entries(customServices || {}).forEach(([key, def]) => {
+    if (!SERVICES[key]) {
+      const entry = { key, name: def.name, unit: def.unit, basis: def.basis, note: 'Added via master costs page' };
+      if (def.basis === 'hours' && Number.isFinite(def.hrs)) entry.hrs = def.hrs;
+      SERVICES[key] = entry;
+    }
+    Object.entries(def.bundles || {}).forEach(([bundleKey, cfg]) => {
+      const b = BUNDLES[bundleKey];
+      if (!b || !cfg.standard) return;
+      if (!b.items.includes(SERVICES[key])) b.items.push(SERVICES[key]);
+      if (!cfg.comanaged) (CUSTOM_COMANAGED_OFF[bundleKey] ||= new Set()).add(key);
+    });
+  });
+}
+
 function bandLookup(bands, users) {
   return bands.find(b => users >= b.min);
 }
@@ -110,4 +137,4 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { MODEL, BUNDLES, bandLookup, priceBundle };
+if (typeof module !== 'undefined') module.exports = { MODEL, BUNDLES, bandLookup, priceBundle, applyCustomServices, CUSTOM_COMANAGED_OFF };
