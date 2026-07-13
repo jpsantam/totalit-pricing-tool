@@ -96,8 +96,9 @@ function renderTable() {
       <td>${s.basis}</td>
       <td class="r cost-units">${units == null ? '—' : num(units)}</td>
       <td class="r cost-total">${cost == null ? '—' : gbp.format(cost)}</td>
+      <td class="r">${CUSTOM_KEYS.has(s.key) ? `<button class="btn ghost btn-remove-service" data-key="${s.key}" data-name="${s.name}" type="button">Remove</button>` : ''}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="5" class="tnote">No matching services.</td></tr>`;
+  }).join('') : `<tr><td colspan="6" class="tnote">No matching services.</td></tr>`;
 
   $('#bundle-note').textContent = allowed
     ? `Units/Cost p/m shown are an illustrative ${REFERENCE.users}-user, ${REFERENCE.servers}-server example quote — for comparing relative impact, not a real customer figure.`
@@ -115,6 +116,20 @@ $('#master-table tbody').addEventListener('input', e => {
   const units = parseFloat(unitsAttr);
   const v = parseFloat(e.target.value);
   costCell.textContent = (!isNaN(v) && !isNaN(units)) ? gbp.format(v * units) : '—';
+});
+
+/* remove a custom service — only ever offered on rows CUSTOM_KEYS knows about
+   (see renderTable); reverses applyCustomServices() live, same as adding one
+   only actually persists once Save is clicked. */
+$('#master-table tbody').addEventListener('click', e => {
+  const btn = e.target.closest('.btn-remove-service');
+  if (!btn) return;
+  const key = btn.dataset.key;
+  if (!confirm(`Remove "${btn.dataset.name}"? This drops it from every bundle and quote it's part of. Not committed until you click Save.`)) return;
+  delete customServices[key];
+  removeCustomService(key);
+  renderTable();
+  $('#save-status').textContent = `Removed "${btn.dataset.name}" — click Save to commit.`;
 });
 
 document.querySelectorAll('.pillbar .pill').forEach(btn => btn.addEventListener('click', () => {
@@ -229,9 +244,8 @@ function resetAddNewServiceForm() {
   $('#ns-error').hidden = true;
   document.querySelectorAll('#addnewservice-panel .ns-bundle-table tbody tr').forEach(tr => {
     tr.querySelector('.ns-standard').checked = false;
-    const co = tr.querySelector('.ns-comanaged');
-    co.checked = true;
-    co.disabled = true;
+    tr.querySelector('.ns-comanaged').checked = false;
+    tr.querySelector('.ns-addon').checked = false;
   });
 }
 function openAddNewService() {
@@ -253,12 +267,6 @@ $('#ns-basis').addEventListener('change', () => {
   $('#ns-hrs-wrap').hidden = $('#ns-basis').value !== 'hours';
 });
 
-document.querySelectorAll('#addnewservice-panel .ns-standard').forEach(cb => cb.addEventListener('change', () => {
-  const co = cb.closest('tr').querySelector('.ns-comanaged');
-  co.disabled = !cb.checked;
-  co.checked = cb.checked;
-}));
-
 $('#btn-addnewservice-save').addEventListener('click', () => {
   const err = $('#ns-error');
   const name = $('#ns-name').value.trim();
@@ -272,11 +280,12 @@ $('#btn-addnewservice-save').addEventListener('click', () => {
 
   const bundles = {};
   document.querySelectorAll('#addnewservice-panel .ns-bundle-table tbody tr').forEach(tr => {
-    if (tr.querySelector('.ns-standard').checked) {
-      bundles[tr.dataset.bundle] = { standard: true, comanaged: tr.querySelector('.ns-comanaged').checked };
-    }
+    const standard = tr.querySelector('.ns-standard').checked;
+    const comanaged = tr.querySelector('.ns-comanaged').checked;
+    const addon = tr.querySelector('.ns-addon').checked;
+    if (standard || comanaged || addon) bundles[tr.dataset.bundle] = { standard, comanaged, addon };
   });
-  if (!Object.keys(bundles).length) return showNsError('Pick at least one bundle.');
+  if (!Object.keys(bundles).length) return showNsError('Tick at least one checkbox on at least one bundle.');
 
   const key = slugKey(name);
   const def = { name, basis, unit, bundles };

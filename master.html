@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>totalIT — master costs</title>
-<link rel="stylesheet" href="style.css?v=2026071303">
+<link rel="stylesheet" href="style.css?v=2026071304">
 </head>
 <body>
 <div class="app">
@@ -46,7 +46,7 @@
         <table id="master-table">
           <thead><tr>
             <th>Service</th><th class="r">Unit cost</th><th>Basis</th>
-            <th class="r">Units p/m</th><th class="r">Cost p/m</th>
+            <th class="r">Units p/m</th><th class="r">Cost p/m</th><th></th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -79,19 +79,26 @@
         </div>
 
         <table class="ns-bundle-table" style="margin-top:1.2rem">
-          <thead><tr><th>Bundle</th><th class="r">Standard line-up</th><th class="r">Co-managed default</th></tr></thead>
+          <thead><tr><th>Bundle</th><th class="r">Standard line-up</th><th class="r">Co-managed default</th><th class="r">Add-on (dropdown)</th></tr></thead>
           <tbody>
             <tr data-bundle="ESSENTIALS"><td>Essentials</td>
-              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Essentials standard"></td>
-              <td class="r"><input type="checkbox" class="ns-comanaged" checked disabled aria-label="Include in Essentials co-managed default"></td></tr>
+              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Essentials standard line-up"></td>
+              <td class="r"><input type="checkbox" class="ns-comanaged" aria-label="Include in Essentials co-managed default"></td>
+              <td class="r"><input type="checkbox" class="ns-addon" aria-label="Offer as an add-on for Essentials"></td></tr>
             <tr data-bundle="SECURE"><td>Secure</td>
-              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Secure standard"></td>
-              <td class="r"><input type="checkbox" class="ns-comanaged" checked disabled aria-label="Include in Secure co-managed default"></td></tr>
+              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Secure standard line-up"></td>
+              <td class="r"><input type="checkbox" class="ns-comanaged" aria-label="Include in Secure co-managed default"></td>
+              <td class="r"><input type="checkbox" class="ns-addon" aria-label="Offer as an add-on for Secure"></td></tr>
             <tr data-bundle="PREMIUM"><td>Premium</td>
-              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Premium standard"></td>
-              <td class="r"><input type="checkbox" class="ns-comanaged" checked disabled aria-label="Include in Premium co-managed default"></td></tr>
+              <td class="r"><input type="checkbox" class="ns-standard" aria-label="Include in Premium standard line-up"></td>
+              <td class="r"><input type="checkbox" class="ns-comanaged" aria-label="Include in Premium co-managed default"></td>
+              <td class="r"><input type="checkbox" class="ns-addon" aria-label="Offer as an add-on for Premium"></td></tr>
           </tbody>
         </table>
+        <p class="qcontext">Co-managed default only takes effect on a bundle where Standard is
+          also ticked — it's the starting state of that line's checkbox when a co-managed quote
+          opens, not a separate line-up. Add-on offers it in "add a service" on that bundle even
+          without Standard ticked. None ticked for a bundle means the service is invisible there.</p>
 
         <div class="result-actions" style="margin-top:1rem">
           <button class="btn" id="btn-addnewservice-save" type="button">Add service</button>
@@ -112,11 +119,11 @@
   <div class="wrap foot"><span class="d"></span><b>ramsac</b>&nbsp;· totalIT master costs · internal, restricted</div>
 </div>
 
-<script src="services.js?v=2026071303"></script>
-<script src="model.js?v=2026071303"></script>
-<script src="secure.js?v=2026071303"></script>
-<script src="essentials.js?v=2026071303"></script>
-<script src="premium.js?v=2026071303"></script>
-<script src="master.js?v=2026071303"></script>
+<script src="services.js?v=2026071304"></script>
+<script src="model.js?v=2026071304"></script>
+<script src="secure.js?v=2026071304"></script>
+<script src="essentials.js?v=2026071304"></script>
+<script src="premium.js?v=2026071304"></script>
+<script src="master.js?v=2026071304"></script>
 </body>
 </html>

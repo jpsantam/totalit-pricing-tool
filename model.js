@@ -42,11 +42,30 @@ const BUNDLES = {};
    "add a service", and the RM can tick it back on in Workings). */
 const CUSTOM_COMANAGED_OFF = {};
 
+/* Populated by applyCustomServices() below — bundle key -> Set of custom
+   service keys that should appear in that bundle's "add a service" picker
+   even though they're not part of its standard line-up. Custom services are
+   NOT offered anywhere by default — whoever adds one via master.html decides
+   per bundle whether it's a standard line, a co-managed default, an add-on-
+   only option, any combination, or none at all. Built-in services are
+   unaffected — they've always been globally addable (see addServiceAvailable
+   in app.js) and this doesn't change that. */
+const CUSTOM_ADDON_ALLOWED = {};
+
+/* Every key ever registered via applyCustomServices() — lets app.js tell a
+   custom service apart from a built-in one (built-ins keep the old
+   always-addable-anywhere behaviour; custom services are gated by
+   CUSTOM_ADDON_ALLOWED), and lets master.js only offer "Remove" on services
+   that actually came from this page. */
+const CUSTOM_KEYS = new Set();
+
 /* Merges services added via the master costs page (master.html) into
    SERVICES/BUNDLES at runtime. `customServices` is the `customServices` key
    from costs.json: { KEY: { name, basis, unit, hrs?, bundles: { ESSENTIALS:
-   {standard, comanaged}, ... } } }. Idempotent — safe to call more than once
-   with the same data (e.g. costs.json reloaded after a save conflict). */
+   {standard, comanaged, addon}, ... } } } — each of the three bundle flags is
+   independent; none is implied by another. Idempotent — safe to call more
+   than once with the same data (e.g. costs.json reloaded after a save
+   conflict). */
 function applyCustomServices(customServices) {
   Object.entries(customServices || {}).forEach(([key, def]) => {
     if (!SERVICES[key]) {
@@ -54,13 +73,28 @@ function applyCustomServices(customServices) {
       if (def.basis === 'hours' && Number.isFinite(def.hrs)) entry.hrs = def.hrs;
       SERVICES[key] = entry;
     }
+    CUSTOM_KEYS.add(key);
     Object.entries(def.bundles || {}).forEach(([bundleKey, cfg]) => {
       const b = BUNDLES[bundleKey];
-      if (!b || !cfg.standard) return;
-      if (!b.items.includes(SERVICES[key])) b.items.push(SERVICES[key]);
-      if (!cfg.comanaged) (CUSTOM_COMANAGED_OFF[bundleKey] ||= new Set()).add(key);
+      if (!b) return;
+      if (cfg.standard) {
+        if (!b.items.includes(SERVICES[key])) b.items.push(SERVICES[key]);
+        if (!cfg.comanaged) (CUSTOM_COMANAGED_OFF[bundleKey] ||= new Set()).add(key);
+      }
+      if (cfg.addon) (CUSTOM_ADDON_ALLOWED[bundleKey] ||= new Set()).add(key);
     });
   });
+}
+
+/* Reverses applyCustomServices() for one key — used by master.html's Remove
+   button. Only ever called on a custom service (see CUSTOM_KEYS); removing a
+   built-in would break every bundle file that references it by name. */
+function removeCustomService(key) {
+  delete SERVICES[key];
+  CUSTOM_KEYS.delete(key);
+  Object.values(BUNDLES).forEach(b => { b.items = b.items.filter(it => it.key !== key); });
+  Object.values(CUSTOM_COMANAGED_OFF).forEach(s => s.delete(key));
+  Object.values(CUSTOM_ADDON_ALLOWED).forEach(s => s.delete(key));
 }
 
 function bandLookup(bands, users) {
@@ -149,4 +183,4 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { MODEL, BUNDLES, bandLookup, priceBundle, applyCustomServices, CUSTOM_COMANAGED_OFF };
+if (typeof module !== 'undefined') module.exports = { MODEL, BUNDLES, bandLookup, priceBundle, applyCustomServices, removeCustomService, CUSTOM_COMANAGED_OFF, CUSTOM_ADDON_ALLOWED, CUSTOM_KEYS };

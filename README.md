@@ -212,23 +212,48 @@ switching to if the GitHub-token-per-editor model becomes friction, or if
 "a few minutes" stops being fast enough.
 
 **Adding a brand-new service now goes through this page too** — "+ Add a
-new service" on `master.html`. Name, unit cost, `basis`, and which bundles
-it belongs to (with an independent per-bundle "co-managed default" toggle)
-are entered there and committed straight into `costs.json`'s
-`customServices` object, keyed by a slug generated from the name (e.g.
-"Inforcer surcharge" → `INFORCER_SURCHARGE`). `app.js`/`master.js` both
-merge `customServices` into `SERVICES`/`BUNDLES` at load time (see
+new service" on `master.html`. Name, unit cost, `basis`, and how it plugs
+into each bundle are entered there and committed straight into
+`costs.json`'s `customServices` object, keyed by a slug generated from the
+name (e.g. "Inforcer surcharge" → `INFORCER_SURCHARGE`). `app.js`/`master.js`
+both merge `customServices` into `SERVICES`/`BUNDLES` at load time (see
 `model.js`'s `applyCustomServices()`), before the `units` overrides are
 applied — so a custom service's cost is then editable the same way as any
 built-in one, in the same table. Reserve editing `services.js` directly for
 the handful of services that predate this (the sheet's original line
 items) or a bulk/scripted change — anything routine goes through the page.
 
-**Co-managed default**, per bundle: ticked means the line starts included
-when a co-managed quote for that bundle opens (same as any built-in
-service); unticked means it starts excluded but the RM can still tick it
-on in Workings, or pull it in via "add a service" on any bundle it wasn't
-given standard inclusion on at all.
+**Per bundle, three independent checkboxes** decide how a custom service
+plugs in — nothing is ticked by default, and ticking one never implies
+another:
+
+- **Standard line-up** — a locked line in that bundle's standard quotes,
+  same as any built-in service.
+- **Co-managed default** — only takes effect on a bundle where Standard is
+  also ticked: it's the starting state of that line's checkbox when a
+  co-managed quote opens (ticked = starts included, same as a built-in;
+  unticked = starts excluded but the RM can still tick it back on in
+  Workings). Ticking it without Standard does nothing, since a co-managed
+  quote's template is that bundle's standard items list.
+- **Add-on (dropdown)** — offers it in that bundle's "add a service" picker
+  even without Standard ticked, for a deal that needs it as an occasional
+  extra rather than a bundle default. (Built-in services have always been
+  offered in every bundle's add-a-service picker regardless of bundle —
+  that doesn't change; this checkbox only gates *custom* services.)
+
+None ticked for a given bundle means the service is invisible there
+entirely — not standard, not co-managed-default, not even addable manually.
+It still exists in the master-costs table (unit cost editable) and can plug
+into other bundles independently.
+
+**Removing a custom service:** a "Remove" button appears next to any
+service that came from this page (built-ins don't get one — removing those
+means editing the bundle/services files directly, same as always). Removing
+drops it from every bundle's standard line-up, every co-managed/add-on
+setting, and the master-costs table; like everything else here it's only
+committed once you click Save. A shared quote link (`&a=KEY`) or `costs.json`
+override that references a removed key will just silently stop applying —
+there's no separate warning for that today.
 
 **`basis`** controls what the unit cost multiplies against:
 

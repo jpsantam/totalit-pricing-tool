@@ -135,7 +135,14 @@ let pendingAdd = new Set();
 
 function addServiceAvailable() {
   const onQuote = new Set([...BUNDLES[state.bundle].items.map(it => it.key), ...state.added]);
-  return Object.values(SERVICES).filter(s => !onQuote.has(s.key)).sort((a, b) => a.name.localeCompare(b.name));
+  const allowedCustom = CUSTOM_ADDON_ALLOWED[state.bundle];
+  return Object.values(SERVICES)
+    .filter(s => !onQuote.has(s.key))
+    /* built-ins have always been globally addable to any bundle; a custom
+       service only shows up here if it was explicitly given the "add-on"
+       checkbox for this bundle on the master costs page */
+    .filter(s => !CUSTOM_KEYS.has(s.key) || (allowedCustom && allowedCustom.has(s.key)))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 function renderAddServicePanel() {
   const q = $('#addservice-search').value.trim().toLowerCase();

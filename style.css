@@ -192,6 +192,8 @@ tr.excluded input.line-cost{text-decoration:none}
 .addservice-actions{display:flex; align-items:center; gap:.8rem; margin-top:1.1rem; flex-wrap:wrap}
 .addservice-actions .btn{padding:.55rem 1.1rem; font-size:.85rem}
 
+.btn-remove-service{padding:.35rem .8rem; font-size:.78rem; white-space:nowrap}
+
 /* footer */
 .foot{padding:1.6rem 0 2rem; font-size:.72rem; letter-spacing:.05em; color:var(--blue);
   display:flex; align-items:center; gap:.4rem}
