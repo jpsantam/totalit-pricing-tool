@@ -102,6 +102,7 @@ function renderBundleChip(s) {
   return `<details class="bundle-remove">
     <summary class="btn ghost btn-remove-service" data-key="${s.key}">Remove</summary>
     <div class="bundle-popover">
+      <button type="button" class="popover-close" aria-label="Close">&times;</button>
       ${memberOf.length ? checkboxes : '<p class="tnote">Not part of any bundle.</p>'}
       <div class="popover-actions">
         ${memberOf.length ? `<button type="button" class="btn ghost rm-apply" data-key="${s.key}">Apply</button>` : ''}
@@ -170,6 +171,9 @@ $('#master-table tbody').addEventListener('input', e => {
    a built-in's SERVICES entry would break every bundle file that references
    it by name. Neither is committed until Save is clicked. */
 $('#master-table tbody').addEventListener('click', e => {
+  const closeBtn = e.target.closest('.popover-close');
+  if (closeBtn) { closeBtn.closest('.bundle-remove').open = false; return; }
+
   const applyBtn = e.target.closest('.rm-apply');
   if (applyBtn) {
     const key = applyBtn.dataset.key;
