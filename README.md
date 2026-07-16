@@ -263,6 +263,17 @@ this is committed until you click Save. A shared quote link (`&a=KEY`) or
 `costs.json` override that references a removed key will just silently stop
 applying — there's no separate warning for that today.
 
+**Adding a service to a bundle it's not normally part of:** the reverse —
+every row also has an "Add to bundle(s)" chip, listing only the bundles that
+service *isn't* currently in (a bundle it's already a member of belongs to
+the "Remove" chip instead, so the two never overlap). Ticking one or more
+and hitting "Apply" adds it to that bundle's standard line-up, same reversal
+model as removing — untick and Apply again to take it back out. This is
+independent of a custom service's own standard/co-managed/add-on checkboxes
+from when it was first created; it's a later, per-bundle override on top,
+and works the same way for a built-in service. The chip disappears once a
+service is in all three bundles, since there's nothing left to add it to.
+
 **`basis`** controls what the unit cost multiplies against:
 
 | basis | units used |

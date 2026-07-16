@@ -34,17 +34,20 @@ let liveUnits = {};
 let customServices = {}; // key -> { name, basis, unit, hrs?, bundles: { ESSENTIALS: {standard, comanaged}, ... } }
 let removedEntirely = new Set(); // service keys hidden from this table + stripped from every bundle
 let bundleExclusions = {}; // service key -> Set of bundle keys it's stripped from (but not eliminated entirely)
+let bundleAdditions = {}; // service key -> Set of bundle keys it's added to (that it's not normally a member of)
 let activeBundle = 'ALL';
 let searchQuery = '';
 
-/* Current removedEntirely/bundleExclusions state in the shape applyRemovals()
-   (model.js) and costs.json both expect. */
-function removalsPayload() {
+/* Current removedEntirely/bundleExclusions/bundleAdditions state in the shape
+   applyBundleOverrides() (model.js) and costs.json both expect. */
+function bundleOverridesPayload() {
+  const toObj = map => Object.fromEntries(
+    Object.entries(map).filter(([, s]) => s.size).map(([key, s]) => [key, [...s]])
+  );
   return {
     removedEntirely: [...removedEntirely],
-    bundleExclusions: Object.fromEntries(
-      Object.entries(bundleExclusions).filter(([, s]) => s.size).map(([key, s]) => [key, [...s]])
-    ),
+    bundleExclusions: toObj(bundleExclusions),
+    bundleAdditions: toObj(bundleAdditions),
   };
 }
 
@@ -86,13 +89,20 @@ function bundleKeySet(bundleKey) {
 }
 
 /* Bundle keys `s.key` belongs to by default (absent any removal) — only
-   these get a checkbox in the bundle-removal popover, since toggling a
-   bundle the service was never part of wouldn't do anything. */
+   these get a checkbox in the "Remove" popover, since toggling a bundle the
+   service was never part of wouldn't do anything there (use "Add to
+   bundle(s)" for those instead). */
 function memberBundleKeys(key) {
   return BUNDLE_KEYS.filter(bk => BUNDLE_MEMBERSHIP[bk] && BUNDLE_MEMBERSHIP[bk].has(key));
 }
 
-function renderBundleChip(s) {
+/* The complement — bundle keys `s.key` is NOT a base member of, i.e. what
+   the "Add to bundle(s)" popover offers. */
+function nonMemberBundleKeys(key) {
+  return BUNDLE_KEYS.filter(bk => !(BUNDLE_MEMBERSHIP[bk] && BUNDLE_MEMBERSHIP[bk].has(key)));
+}
+
+function renderRemoveChip(s) {
   const memberOf = memberBundleKeys(s.key);
   const excludedHere = bundleExclusions[s.key];
   const checkboxes = memberOf.map(bk => `<label>
@@ -107,6 +117,26 @@ function renderBundleChip(s) {
       <div class="popover-actions">
         ${memberOf.length ? `<button type="button" class="btn ghost rm-apply" data-key="${s.key}">Apply</button>` : ''}
         <button type="button" class="btn ghost rm-eliminate" data-key="${s.key}" data-name="${s.name}">Eliminate entirely</button>
+      </div>
+    </div>
+  </details>`;
+}
+
+function renderAddChip(s) {
+  const nonMemberOf = nonMemberBundleKeys(s.key);
+  if (!nonMemberOf.length) return ''; // already in every bundle — nothing to add
+  const addedHere = bundleAdditions[s.key];
+  const checkboxes = nonMemberOf.map(bk => `<label>
+      <input type="checkbox" class="add-bundle" data-bundle="${bk}" ${addedHere && addedHere.has(bk) ? 'checked' : ''}>
+      ${BUNDLES[bk] ? BUNDLES[bk].name : bk}
+    </label>`).join('');
+  return `<details class="bundle-add">
+    <summary class="btn ghost btn-add-service" data-key="${s.key}">Add to bundle(s)</summary>
+    <div class="bundle-popover">
+      <button type="button" class="popover-close" aria-label="Close">&times;</button>
+      ${checkboxes}
+      <div class="popover-actions">
+        <button type="button" class="btn ghost add-apply" data-key="${s.key}">Apply</button>
       </div>
     </div>
   </details>`;
@@ -135,13 +165,17 @@ function renderTable() {
     const removedNote = excludedHere && excludedHere.size
       ? `<div class="tnote">Removed from: ${[...excludedHere].map(bk => BUNDLES[bk] ? BUNDLES[bk].name : bk).join(', ')}</div>`
       : '';
+    const addedHere = bundleAdditions[s.key];
+    const addedNote = addedHere && addedHere.size
+      ? `<div class="tnote">Added to: ${[...addedHere].map(bk => BUNDLES[bk] ? BUNDLES[bk].name : bk).join(', ')}</div>`
+      : '';
     return `<tr data-key="${s.key}" data-units="${units == null ? '' : units}">
-      <td>${s.name}${s.note ? `<div class="tnote">${s.note}</div>` : ''}${removedNote}</td>
+      <td>${s.name}${s.note ? `<div class="tnote">${s.note}</div>` : ''}${removedNote}${addedNote}</td>
       <td class="r"><input type="number" class="line-cost" value="${value}" min="0" step="0.01" data-key="${s.key}" aria-label="Unit cost for ${s.name}"></td>
       <td>${s.basis}</td>
       <td class="r cost-units">${units == null ? '—' : num(units)}</td>
       <td class="r cost-total">${cost == null ? '—' : gbp.format(cost)}</td>
-      <td class="r">${renderBundleChip(s)}</td>
+      <td class="r"><div class="bundle-chips">${renderRemoveChip(s)}${renderAddChip(s)}</div></td>
     </tr>`;
   }).join('') : `<tr><td colspan="6" class="tnote">No matching services.</td></tr>`;
 
@@ -163,16 +197,18 @@ $('#master-table tbody').addEventListener('input', e => {
   costCell.textContent = (!isNaN(v) && !isNaN(units)) ? gbp.format(v * units) : '—';
 });
 
-/* the bundle-removal popover — "Apply" strips the unchecked bundles for that
-   one service (reversible: re-check a box and Apply again to restore it);
-   "Eliminate entirely" is a full removal — for a custom service that means
-   deleting its definition outright (reverses applyCustomServices() live,
-   same as before); for a built-in it means REMOVED_ENTIRELY, since deleting
-   a built-in's SERVICES entry would break every bundle file that references
-   it by name. Neither is committed until Save is clicked. */
+/* the bundle popovers — "Remove"'s Apply strips the unchecked bundles for
+   that service (reversible: re-check a box and Apply again to restore it);
+   "Add to bundle(s)"'s Apply adds it to the checked bundles it's not
+   normally part of (same reversibility, other direction). "Eliminate
+   entirely" is a full removal — for a custom service that means deleting
+   its definition outright (reverses applyCustomServices() live, same as
+   before); for a built-in it means REMOVED_ENTIRELY, since deleting a
+   built-in's SERVICES entry would break every bundle file that references
+   it by name. None of this is committed until Save is clicked. */
 $('#master-table tbody').addEventListener('click', e => {
   const closeBtn = e.target.closest('.popover-close');
-  if (closeBtn) { closeBtn.closest('.bundle-remove').open = false; return; }
+  if (closeBtn) { closeBtn.closest('details').open = false; return; }
 
   const applyBtn = e.target.closest('.rm-apply');
   if (applyBtn) {
@@ -181,7 +217,20 @@ $('#master-table tbody').addEventListener('click', e => {
     const excluded = new Set();
     details.querySelectorAll('.rm-bundle').forEach(cb => { if (!cb.checked) excluded.add(cb.dataset.bundle); });
     if (excluded.size) bundleExclusions[key] = excluded; else delete bundleExclusions[key];
-    applyRemovals(removalsPayload());
+    applyBundleOverrides(bundleOverridesPayload());
+    renderTable();
+    $('#save-status').textContent = `Updated bundle assignment — click Save to commit.`;
+    return;
+  }
+
+  const addApplyBtn = e.target.closest('.add-apply');
+  if (addApplyBtn) {
+    const key = addApplyBtn.dataset.key;
+    const details = addApplyBtn.closest('.bundle-add');
+    const added = new Set();
+    details.querySelectorAll('.add-bundle').forEach(cb => { if (cb.checked) added.add(cb.dataset.bundle); });
+    if (added.size) bundleAdditions[key] = added; else delete bundleAdditions[key];
+    applyBundleOverrides(bundleOverridesPayload());
     renderTable();
     $('#save-status').textContent = `Updated bundle assignment — click Save to commit.`;
     return;
@@ -194,12 +243,14 @@ $('#master-table tbody').addEventListener('click', e => {
       if (!confirm(`Remove "${name}" entirely? This drops it from every bundle and quote it's part of. Not committed until you click Save.`)) return;
       delete customServices[key];
       delete bundleExclusions[key];
+      delete bundleAdditions[key];
       removeCustomService(key);
     } else {
       if (!confirm(`Eliminate "${name}" entirely from the master costs page? It disappears from every bundle and this table. Not committed until you click Save.`)) return;
       delete bundleExclusions[key];
+      delete bundleAdditions[key];
       removedEntirely.add(key);
-      applyRemovals(removalsPayload());
+      applyBundleOverrides(bundleOverridesPayload());
     }
     renderTable();
     $('#save-status').textContent = `Eliminated "${name}" — click Save to commit.`;
@@ -227,6 +278,7 @@ async function loadCurrent() {
     customServices = {};
     removedEntirely = new Set();
     bundleExclusions = {};
+    bundleAdditions = {};
     $('#updated-at').textContent = '';
     return;
   }
@@ -239,8 +291,10 @@ async function loadCurrent() {
   removedEntirely = new Set(parsed.removedEntirely || []);
   bundleExclusions = {};
   Object.entries(parsed.bundleExclusions || {}).forEach(([key, bundleKeys]) => { bundleExclusions[key] = new Set(bundleKeys); });
+  bundleAdditions = {};
+  Object.entries(parsed.bundleAdditions || {}).forEach(([key, bundleKeys]) => { bundleAdditions[key] = new Set(bundleKeys); });
   applyCustomServices(customServices); // must run before the unit-override loop below, so custom keys already exist in SERVICES
-  applyRemovals(removalsPayload());
+  applyBundleOverrides(bundleOverridesPayload());
   Object.entries(liveUnits).forEach(([key, unit]) => {
     if (SERVICES[key] && Number.isFinite(unit) && unit >= 0) SERVICES[key].unit = unit;
   });
@@ -279,7 +333,7 @@ $('#save-btn').addEventListener('click', async () => {
   $('#save-status').textContent = 'Saving…';
   const body = {
     message: 'Update master costs via master.html',
-    content: b64EncodeUtf8(JSON.stringify({ units, customServices, ...removalsPayload(), updatedAt: new Date().toISOString() }, null, 2)),
+    content: b64EncodeUtf8(JSON.stringify({ units, customServices, ...bundleOverridesPayload(), updatedAt: new Date().toISOString() }, null, 2)),
     branch: GITHUB_BRANCH,
   };
   if (currentSha) body.sha = currentSha;

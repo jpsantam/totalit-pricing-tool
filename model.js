@@ -63,7 +63,7 @@ const CUSTOM_KEYS = new Set();
    that bundle's standard line-up absent any removal — i.e. what secure.js /
    essentials.js / premium.js hardcode, plus whatever applyCustomServices()
    has ticked "standard" for. This is the base membership that
-   applyRemovals()/rebuildBundles() below subtract from; it's seeded lazily
+   applyBundleOverrides()/rebuildBundles() below subtract from; it's seeded lazily
    from BUNDLES[key].items the first time either function runs, which is
    safe because the bundle files always populate BUNDLES before master.js or
    app.js ever call into this module. */
@@ -76,24 +76,36 @@ function ensureBundleMembership() {
 
 /* Service keys eliminated entirely from the master costs page — hidden from
    master.html's table and stripped out of every bundle. Populated by
-   applyRemovals() below. */
+   applyBundleOverrides() below. */
 const REMOVED_ENTIRELY = new Set();
 
 /* bundleKey -> Set of service keys removed from that one bundle specifically
-   (but not eliminated entirely) — the other half of applyRemovals()'s state. */
+   (but not eliminated entirely) — one of the two override layers rebuildBundles()
+   applies on top of BUNDLE_MEMBERSHIP. */
 let BUNDLE_EXCLUSIONS = {};
 
-/* Rebuilds every bundle's `items` from BUNDLE_MEMBERSHIP, filtering out
-   anything in REMOVED_ENTIRELY or that bundle's BUNDLE_EXCLUSIONS set. Runs
-   from scratch each time (not a running subtraction) so a removal can always
-   be reversed by calling applyRemovals() again with updated state. */
+/* bundleKey -> Set of service keys added to that one bundle specifically,
+   even though it's not one of BUNDLE_MEMBERSHIP's base members there — the
+   other override layer. A key can't be in both this and BUNDLE_EXCLUSIONS
+   for the same bundle in normal use (master.html's "Remove" chip only ever
+   offers base members, "Add to bundle(s)" only ever offers non-members), but
+   if it ever happened exclusion would win — see the filter below. */
+let BUNDLE_ADDITIONS = {};
+
+/* Rebuilds every bundle's `items` from BUNDLE_MEMBERSHIP plus that bundle's
+   BUNDLE_ADDITIONS, filtering out anything in REMOVED_ENTIRELY or that
+   bundle's BUNDLE_EXCLUSIONS. Runs from scratch each time (not a running
+   subtraction) so an override can always be reversed by calling
+   applyBundleOverrides() again with updated state. */
 function rebuildBundles() {
   ensureBundleMembership();
   Object.entries(BUNDLE_MEMBERSHIP).forEach(([bundleKey, keys]) => {
     const b = BUNDLES[bundleKey];
     if (!b) return;
     const excludedHere = BUNDLE_EXCLUSIONS[bundleKey];
-    b.items = [...keys]
+    const addedHere = BUNDLE_ADDITIONS[bundleKey];
+    const allKeys = addedHere ? new Set([...keys, ...addedHere]) : keys;
+    b.items = [...allKeys]
       .filter(key => SERVICES[key] && !REMOVED_ENTIRELY.has(key) && !(excludedHere && excludedHere.has(key)))
       .map(key => SERVICES[key]);
   });
@@ -129,7 +141,7 @@ function applyCustomServices(customServices) {
 
 /* Reverses applyCustomServices() for one key — used by master.html's full
    delete on a custom service. Only ever called on a custom service (see
-   CUSTOM_KEYS); a built-in instead goes through applyRemovals() below, since
+   CUSTOM_KEYS); a built-in instead goes through applyBundleOverrides() below, since
    deleting a built-in's SERVICES entry would break every bundle file that
    references it by name. */
 function removeCustomService(key) {
@@ -137,26 +149,32 @@ function removeCustomService(key) {
   CUSTOM_KEYS.delete(key);
   REMOVED_ENTIRELY.delete(key);
   Object.values(BUNDLE_EXCLUSIONS).forEach(s => s.delete(key));
+  Object.values(BUNDLE_ADDITIONS).forEach(s => s.delete(key));
   if (BUNDLE_MEMBERSHIP) Object.values(BUNDLE_MEMBERSHIP).forEach(s => s.delete(key));
   Object.values(CUSTOM_COMANAGED_OFF).forEach(s => s.delete(key));
   Object.values(CUSTOM_ADDON_ALLOWED).forEach(s => s.delete(key));
   rebuildBundles();
 }
 
-/* Applies master.html's per-service bundle removals (built-in or custom) —
+/* Applies master.html's per-service bundle overrides (built-in or custom) —
    `removedEntirely` (array of service keys, hidden from the master table and
-   stripped from every bundle) and `bundleExclusions` ({ KEY: [bundleKey,
-   ...] }, stripped from just those bundles) are the `removedEntirely` /
-   `bundleExclusions` keys from costs.json. Idempotent and fully reversible —
-   pass the updated state again (e.g. a bundle un-ticked back on) and it
-   recomputes from BUNDLE_MEMBERSHIP rather than compounding. */
-function applyRemovals({ removedEntirely = [], bundleExclusions = {} } = {}) {
+   stripped from every bundle), `bundleExclusions` ({ KEY: [bundleKey, ...] },
+   stripped from just those bundles), and `bundleAdditions` ({ KEY:
+   [bundleKey, ...] }, added to bundles they're not normally part of) are the
+   matching keys from costs.json. Idempotent and fully reversible — pass the
+   updated state again (e.g. a bundle un-ticked back on) and it recomputes
+   from BUNDLE_MEMBERSHIP rather than compounding. */
+function applyBundleOverrides({ removedEntirely = [], bundleExclusions = {}, bundleAdditions = {} } = {}) {
   ensureBundleMembership();
   REMOVED_ENTIRELY.clear();
   removedEntirely.forEach(key => REMOVED_ENTIRELY.add(key));
   BUNDLE_EXCLUSIONS = {};
   Object.entries(bundleExclusions).forEach(([key, bundleKeys]) => {
     bundleKeys.forEach(bundleKey => (BUNDLE_EXCLUSIONS[bundleKey] ||= new Set()).add(key));
+  });
+  BUNDLE_ADDITIONS = {};
+  Object.entries(bundleAdditions).forEach(([key, bundleKeys]) => {
+    bundleKeys.forEach(bundleKey => (BUNDLE_ADDITIONS[bundleKey] ||= new Set()).add(key));
   });
   rebuildBundles();
 }
@@ -247,4 +265,4 @@ function priceBundle({ bundle = 'SECURE', users, servers, charity, markup = MODE
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { MODEL, BUNDLES, bandLookup, priceBundle, applyCustomServices, removeCustomService, applyRemovals, CUSTOM_COMANAGED_OFF, CUSTOM_ADDON_ALLOWED, CUSTOM_KEYS, REMOVED_ENTIRELY, get BUNDLE_MEMBERSHIP() { return BUNDLE_MEMBERSHIP; } };
+if (typeof module !== 'undefined') module.exports = { MODEL, BUNDLES, bandLookup, priceBundle, applyCustomServices, removeCustomService, applyBundleOverrides, CUSTOM_COMANAGED_OFF, CUSTOM_ADDON_ALLOWED, CUSTOM_KEYS, REMOVED_ENTIRELY, get BUNDLE_MEMBERSHIP() { return BUNDLE_MEMBERSHIP; } };
