@@ -143,9 +143,10 @@ The tool nudges good practice without labelling it as such:
 - `master.html` / `master.js` — the master costs editor: unit costs, and
   "+ Add a new service" for brand-new lines. Commits straight to
   `costs.json` via the GitHub API using a personal access token — see
-  "Master costs page" below. `costs.json` — the live unit-cost overrides
-  and custom service definitions `app.js` reads on every load (via
-  `model.js`'s `applyCustomServices()`); empty until the first save.
+  "Master costs page" below. `costs.json` — the live unit-cost overrides,
+  custom service definitions, and per-service bundle removals `app.js` reads
+  on every load (via `model.js`'s `applyCustomServices()`/`applyRemovals()`);
+  empty until the first save.
   `worker/` — a parked Cloudflare Worker for a real-time alternative to
   this, not currently wired up (see below).
 
@@ -246,14 +247,21 @@ entirely — not standard, not co-managed-default, not even addable manually.
 It still exists in the master-costs table (unit cost editable) and can plug
 into other bundles independently.
 
-**Removing a custom service:** a "Remove" button appears next to any
-service that came from this page (built-ins don't get one — removing those
-means editing the bundle/services files directly, same as always). Removing
-drops it from every bundle's standard line-up, every co-managed/add-on
-setting, and the master-costs table; like everything else here it's only
-committed once you click Save. A shared quote link (`&a=KEY`) or `costs.json`
-override that references a removed key will just silently stop applying —
-there's no separate warning for that today.
+**Removing a service from a bundle (or entirely):** every row — built-in or
+custom — has a "Remove" chip. Clicking it opens a small popover listing the
+bundles that service is currently part of, each with a checkbox; unticking
+one and hitting "Apply" strips just that bundle's standard line-up (re-tick
+it and Apply again to restore it — reversible, not a delete). "Eliminate
+entirely" at the bottom of the popover goes further: for a **custom**
+service it deletes the definition outright (same full removal as before —
+drops it from every bundle, every co-managed/add-on setting, and the
+master-costs table). For a **built-in** service it can't delete the
+`services.js` entry (every bundle file references it by name), so instead it
+hides the row from this table and strips it from every bundle — functionally
+retired without touching the source file. Like everything else here, none of
+this is committed until you click Save. A shared quote link (`&a=KEY`) or
+`costs.json` override that references a removed key will just silently stop
+applying — there's no separate warning for that today.
 
 **`basis`** controls what the unit cost multiplies against:
 

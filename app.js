@@ -35,6 +35,7 @@ const costsReady = fetch('costs.json?t=' + Date.now())
   .then(data => {
     if (!data) return;
     applyCustomServices(data.customServices); // must run first — creates SERVICES entries the units override below can then match
+    applyRemovals({ removedEntirely: data.removedEntirely, bundleExclusions: data.bundleExclusions });
     if (!data.units) return;
     Object.entries(data.units).forEach(([key, unit]) => {
       if (SERVICES[key] && Number.isFinite(unit) && unit >= 0) SERVICES[key].unit = unit;

@@ -32,8 +32,21 @@ let password = '';
 let currentSha = null; // null means costs.json doesn't exist yet (first save creates it)
 let liveUnits = {};
 let customServices = {}; // key -> { name, basis, unit, hrs?, bundles: { ESSENTIALS: {standard, comanaged}, ... } }
+let removedEntirely = new Set(); // service keys hidden from this table + stripped from every bundle
+let bundleExclusions = {}; // service key -> Set of bundle keys it's stripped from (but not eliminated entirely)
 let activeBundle = 'ALL';
 let searchQuery = '';
+
+/* Current removedEntirely/bundleExclusions state in the shape applyRemovals()
+   (model.js) and costs.json both expect. */
+function removalsPayload() {
+  return {
+    removedEntirely: [...removedEntirely],
+    bundleExclusions: Object.fromEntries(
+      Object.entries(bundleExclusions).filter(([, s]) => s.size).map(([key, s]) => [key, [...s]])
+    ),
+  };
+}
 
 const BUNDLE_KEYS = ['ESSENTIALS', 'SECURE', 'PREMIUM'];
 
@@ -72,10 +85,37 @@ function bundleKeySet(bundleKey) {
   return new Set(BUNDLES[bundleKey].items.map(it => it.key));
 }
 
+/* Bundle keys `s.key` belongs to by default (absent any removal) — only
+   these get a checkbox in the bundle-removal popover, since toggling a
+   bundle the service was never part of wouldn't do anything. */
+function memberBundleKeys(key) {
+  return BUNDLE_KEYS.filter(bk => BUNDLE_MEMBERSHIP[bk] && BUNDLE_MEMBERSHIP[bk].has(key));
+}
+
+function renderBundleChip(s) {
+  const memberOf = memberBundleKeys(s.key);
+  const excludedHere = bundleExclusions[s.key];
+  const checkboxes = memberOf.map(bk => `<label>
+      <input type="checkbox" class="rm-bundle" data-bundle="${bk}" ${excludedHere && excludedHere.has(bk) ? '' : 'checked'}>
+      ${BUNDLES[bk] ? BUNDLES[bk].name : bk}
+    </label>`).join('');
+  return `<details class="bundle-remove">
+    <summary class="btn ghost btn-remove-service" data-key="${s.key}">Remove</summary>
+    <div class="bundle-popover">
+      ${memberOf.length ? checkboxes : '<p class="tnote">Not part of any bundle.</p>'}
+      <div class="popover-actions">
+        ${memberOf.length ? `<button type="button" class="btn ghost rm-apply" data-key="${s.key}">Apply</button>` : ''}
+        <button type="button" class="btn ghost rm-eliminate" data-key="${s.key}" data-name="${s.name}">Eliminate entirely</button>
+      </div>
+    </div>
+  </details>`;
+}
+
 function renderTable() {
   const allowed = bundleKeySet(activeBundle);
   const q = searchQuery.trim().toLowerCase();
   const rows = Object.values(SERVICES)
+    .filter(s => !REMOVED_ENTIRELY.has(s.key))
     .filter(s => !allowed || allowed.has(s.key))
     .filter(s => !q || s.name.toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -90,13 +130,17 @@ function renderTable() {
     const line = ref ? ref.lines.find(l => l.key === s.key) : null;
     const units = line ? line.units : null;
     const cost = line ? value * units : null;
+    const excludedHere = bundleExclusions[s.key];
+    const removedNote = excludedHere && excludedHere.size
+      ? `<div class="tnote">Removed from: ${[...excludedHere].map(bk => BUNDLES[bk] ? BUNDLES[bk].name : bk).join(', ')}</div>`
+      : '';
     return `<tr data-key="${s.key}" data-units="${units == null ? '' : units}">
-      <td>${s.name}${s.note ? `<div class="tnote">${s.note}</div>` : ''}</td>
+      <td>${s.name}${s.note ? `<div class="tnote">${s.note}</div>` : ''}${removedNote}</td>
       <td class="r"><input type="number" class="line-cost" value="${value}" min="0" step="0.01" data-key="${s.key}" aria-label="Unit cost for ${s.name}"></td>
       <td>${s.basis}</td>
       <td class="r cost-units">${units == null ? '—' : num(units)}</td>
       <td class="r cost-total">${cost == null ? '—' : gbp.format(cost)}</td>
-      <td class="r">${CUSTOM_KEYS.has(s.key) ? `<button class="btn ghost btn-remove-service" data-key="${s.key}" data-name="${s.name}" type="button">Remove</button>` : ''}</td>
+      <td class="r">${renderBundleChip(s)}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="6" class="tnote">No matching services.</td></tr>`;
 
@@ -118,18 +162,44 @@ $('#master-table tbody').addEventListener('input', e => {
   costCell.textContent = (!isNaN(v) && !isNaN(units)) ? gbp.format(v * units) : '—';
 });
 
-/* remove a custom service — only ever offered on rows CUSTOM_KEYS knows about
-   (see renderTable); reverses applyCustomServices() live, same as adding one
-   only actually persists once Save is clicked. */
+/* the bundle-removal popover — "Apply" strips the unchecked bundles for that
+   one service (reversible: re-check a box and Apply again to restore it);
+   "Eliminate entirely" is a full removal — for a custom service that means
+   deleting its definition outright (reverses applyCustomServices() live,
+   same as before); for a built-in it means REMOVED_ENTIRELY, since deleting
+   a built-in's SERVICES entry would break every bundle file that references
+   it by name. Neither is committed until Save is clicked. */
 $('#master-table tbody').addEventListener('click', e => {
-  const btn = e.target.closest('.btn-remove-service');
-  if (!btn) return;
-  const key = btn.dataset.key;
-  if (!confirm(`Remove "${btn.dataset.name}"? This drops it from every bundle and quote it's part of. Not committed until you click Save.`)) return;
-  delete customServices[key];
-  removeCustomService(key);
-  renderTable();
-  $('#save-status').textContent = `Removed "${btn.dataset.name}" — click Save to commit.`;
+  const applyBtn = e.target.closest('.rm-apply');
+  if (applyBtn) {
+    const key = applyBtn.dataset.key;
+    const details = applyBtn.closest('.bundle-remove');
+    const excluded = new Set();
+    details.querySelectorAll('.rm-bundle').forEach(cb => { if (!cb.checked) excluded.add(cb.dataset.bundle); });
+    if (excluded.size) bundleExclusions[key] = excluded; else delete bundleExclusions[key];
+    applyRemovals(removalsPayload());
+    renderTable();
+    $('#save-status').textContent = `Updated bundle assignment — click Save to commit.`;
+    return;
+  }
+
+  const elimBtn = e.target.closest('.rm-eliminate');
+  if (elimBtn) {
+    const key = elimBtn.dataset.key, name = elimBtn.dataset.name;
+    if (CUSTOM_KEYS.has(key)) {
+      if (!confirm(`Remove "${name}" entirely? This drops it from every bundle and quote it's part of. Not committed until you click Save.`)) return;
+      delete customServices[key];
+      delete bundleExclusions[key];
+      removeCustomService(key);
+    } else {
+      if (!confirm(`Eliminate "${name}" entirely from the master costs page? It disappears from every bundle and this table. Not committed until you click Save.`)) return;
+      delete bundleExclusions[key];
+      removedEntirely.add(key);
+      applyRemovals(removalsPayload());
+    }
+    renderTable();
+    $('#save-status').textContent = `Eliminated "${name}" — click Save to commit.`;
+  }
 });
 
 document.querySelectorAll('.pillbar .pill').forEach(btn => btn.addEventListener('click', () => {
@@ -151,6 +221,8 @@ async function loadCurrent() {
     currentSha = null;
     liveUnits = {};
     customServices = {};
+    removedEntirely = new Set();
+    bundleExclusions = {};
     $('#updated-at').textContent = '';
     return;
   }
@@ -160,12 +232,16 @@ async function loadCurrent() {
   const parsed = JSON.parse(b64DecodeUtf8(data.content));
   liveUnits = parsed.units || {};
   customServices = parsed.customServices || {};
+  removedEntirely = new Set(parsed.removedEntirely || []);
+  bundleExclusions = {};
+  Object.entries(parsed.bundleExclusions || {}).forEach(([key, bundleKeys]) => { bundleExclusions[key] = new Set(bundleKeys); });
   applyCustomServices(customServices); // must run before the unit-override loop below, so custom keys already exist in SERVICES
+  applyRemovals(removalsPayload());
   Object.entries(liveUnits).forEach(([key, unit]) => {
     if (SERVICES[key] && Number.isFinite(unit) && unit >= 0) SERVICES[key].unit = unit;
   });
   $('#updated-at').textContent = parsed.updatedAt
-    ? `Live as of ${new Date(parsed.updatedAt).toLocaleString('en-GB')}. Anything not listed is still the services.js default.`
+    ? `Live as of ${new Date(parsed.updatedAt).toLocaleString('en-GB')}.`
     : '';
 }
 
@@ -199,7 +275,7 @@ $('#save-btn').addEventListener('click', async () => {
   $('#save-status').textContent = 'Saving…';
   const body = {
     message: 'Update master costs via master.html',
-    content: b64EncodeUtf8(JSON.stringify({ units, customServices, updatedAt: new Date().toISOString() }, null, 2)),
+    content: b64EncodeUtf8(JSON.stringify({ units, customServices, ...removalsPayload(), updatedAt: new Date().toISOString() }, null, 2)),
     branch: GITHUB_BRANCH,
   };
   if (currentSha) body.sha = currentSha;
