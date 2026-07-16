@@ -1,4 +1,55 @@
 {
-  "units": {},
-  "updatedAt": null
+  "units": {
+    "SERVER_HEALTH": 13.99,
+    "CLOUD_BACKUP_365": 1.95,
+    "BOARD_BRIEFING": 250,
+    "CYBER_RESILIENCE_REPORT": 63.16,
+    "AV_MANAGEMENT": 51.66,
+    "BACKUP_MONITORING": 0.4,
+    "COMPLIANCE_PORTALS": 0.15,
+    "CYBER_ESSENTIALS_CERT": 197.665,
+    "CYBER_MGMT_TECHDEV": 51.66,
+    "SECURITY_TRAINING": 1.21,
+    "HELPDESK": 30,
+    "ISO27001_GAP_ANALYSIS": 121.86,
+    "ITDR": 0.95,
+    "MDR": 1.75,
+    "IT_POLICY_REVIEW": 60.93,
+    "IT_RISK_REGISTER": 142.6933333333,
+    "QBR": 44.8,
+    "QUARTERLY_ROADMAP": 65.21,
+    "SECURE_TENANT_MANAGEMENT_INFORCER": 100,
+    "SIEM": 1.51,
+    "STARTER_LEAVER": 40.97,
+    "TC_TIME": 63.16,
+    "THIRD_PARTY_PATCHING": 0.95,
+    "THIRD_PARTY_VULN_MGMT": 60.8,
+    "VEEAM_NOC": 9,
+    "OS_PATCHING": 1.1
+  },
+  "customServices": {
+    "SECURE_TENANT_MANAGEMENT_INFORCER": {
+      "name": "Secure Tenant Management (Inforcer)",
+      "basis": "fixedPriceAdd",
+      "unit": 100,
+      "bundles": {
+        "ESSENTIALS": {
+          "standard": true,
+          "comanaged": false,
+          "addon": false
+        },
+        "SECURE": {
+          "standard": true,
+          "comanaged": false,
+          "addon": false
+        },
+        "PREMIUM": {
+          "standard": true,
+          "comanaged": false,
+          "addon": false
+        }
+      }
+    }
+  },
+  "updatedAt": "2026-07-16T07:55:40.261Z"
 }
